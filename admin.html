@@ -540,7 +540,7 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 300,
         system: systemPrompt,
         messages: [ { role: "user", content: `Recent conversation:\n${history}\n\nWrite the customer's next reply, then the JSON score line.` } ]
