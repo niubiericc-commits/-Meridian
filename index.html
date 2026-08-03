@@ -889,7 +889,7 @@ async function translateMessage(leadId, msgIdx, btnEl){
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "claude-sonnet-5",
         max_tokens: 200,
         system: "You are a translation engine. Translate the given customer message into natural, concise Simplified Chinese. Return only the translated text, nothing else.",
         messages: [ { role: "user", content: m.text } ]
