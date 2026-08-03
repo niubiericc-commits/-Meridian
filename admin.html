@@ -103,6 +103,23 @@
   .btn-primary:disabled{ opacity:0.35; cursor:not-allowed; }
   .btn-mini{ background:transparent; border:1px solid var(--border); color: var(--text-dim); font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; }
   .btn-mini:hover{ background: var(--panel2); }
+  .btn-danger{ background:transparent; border:1px solid #4a2226; color: var(--red); }
+  .btn-danger:hover{ background: var(--red-dim); }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .field-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color: var(--text-faint); margin: 14px 0 6px; }
+  .field-label:first-child{ margin-top:0; }
+  textarea.side-input{
+    width:100%; resize:none; background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:9px 11px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none; height:56px;
+  }
+  textarea.side-input:focus{ border-color: #7f8cff; }
+  textarea.side-input::placeholder{ color: var(--text-faint); }
+  select.side-select{ width:100%; }
+  .side-block{ border-top:1px solid var(--border-soft); padding-top:14px; margin-top:16px; }
+  .side-block:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .typing-hint{ font-size:11px; color: var(--text-faint); font-style:italic; margin-top:6px; }
 
   .data-table{ width:100%; border-collapse:collapse; background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); overflow:hidden; }
   .data-table th{
@@ -176,6 +193,7 @@
     <span class="badge-backend">Internal · reply control</span>
     <span class="refresh-note" id="refreshNote"></span>
     <button class="btn-refresh" id="refreshBtn">Refresh</button>
+    <button class="btn-refresh" id="resetAllBtn" style="color: var(--red); border-color:#4a2226;">Reset all conversations</button>
   </div>
   <div class="shell">
     <div class="left" id="leftPane"></div>
@@ -218,6 +236,24 @@ let activeLeadId = null;
 let selectedIds = new Set();
 let topicFilter = "all";
 let statusFilter = "awaiting"; // awaiting = has an unanswered outbound message
+let generationBusy = false; // global lock — only one lead replies at a time, never in parallel
+
+function resetAllConversations(){
+  if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
+  leads.forEach(l=>{
+    l.messages = [];
+    l.status = "new";
+    l.score = 0;
+    l.manualOverride = false;
+    l.unread = false;
+  });
+  saveDB();
+  activeLeadId = null;
+  selectedIds.clear();
+  showToast("All conversations reset");
+  renderLeft();
+  renderRight();
+}
 
 function initials(name){
   const parts = name.split(" ");
@@ -292,8 +328,8 @@ function renderLeft(){
     </div>
 
     <div class="toolbar" style="margin-bottom:18px;">
-      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Generate AI replies for ${selCount} selected</button>
-      <span class="toolbar-label" id="bulkProgress"></span>
+      <button class="btn btn-primary" id="bulkReplyBtn" ${(selCount===0 || generationBusy)?"disabled":""}>Generate AI replies for ${selCount} selected</button>
+      <span class="toolbar-label" id="bulkProgress">${generationBusy ? "Generating — please wait, one lead at a time..." : ""}</span>
     </div>
 
     ${pool.length===0 ? `
@@ -381,9 +417,28 @@ function renderRight(){
       </div>
     </div>
     <div class="thread-messages" id="threadMessages"></div>
-    <div class="side-actions">
-      <button class="btn btn-primary" id="threadReplyBtn" ${needsReply(l)?"":"disabled"}>Generate AI reply</button>
+
+    <div class="side-block">
+      <div class="field-label">AI reply direction</div>
+      <select class="side-select" id="dirSelect">
+        ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${l.topic===tp.id?"selected":""}>${tp.en}</option>`).join("")}
+      </select>
+      <div class="field-label">Custom instruction (optional)</div>
+      <textarea class="side-input" id="customDirInput" placeholder="e.g. Push back twice on price before agreeing">${escapeHtml(l.customDirection || "")}</textarea>
+      <button class="btn btn-mini" id="saveDirBtn" style="margin-top:8px;">Save direction</button>
+    </div>
+
+    <div class="side-block">
+      <div class="field-label">Generate AI reply</div>
+      <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) && !generationBusy ? "" : "disabled"}>Generate AI reply</button>
       <span class="toolbar-label" id="threadReplyStatus"></span>
+      <div class="typing-hint">Replies are paced to feel human — this can take a few seconds.</div>
+    </div>
+
+    <div class="side-block">
+      <div class="field-label">Reply directly as yourself</div>
+      <textarea class="side-input" id="manualReplyInput" placeholder="Type a message to send to this lead..."></textarea>
+      <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as you</button>
     </div>
   `;
   const msgWrap = document.getElementById('threadMessages');
@@ -396,13 +451,38 @@ function renderRight(){
     outer.appendChild(bubble);
     msgWrap.appendChild(outer);
   });
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+
+  document.getElementById('saveDirBtn').addEventListener('click', ()=>{
+    l.topic = document.getElementById('dirSelect').value;
+    l.customDirection = document.getElementById('customDirInput').value.trim();
+    saveDB();
+    showToast("Direction saved");
+    renderLeft();
+  });
+
+  document.getElementById('manualReplyBtn').addEventListener('click', ()=>{
+    const input = document.getElementById('manualReplyInput');
+    const text = input.value.trim();
+    if(!text) return;
+    const d = new Date();
+    l.messages.push({dir:'out', text, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation:null});
+    if(l.status==="new") l.status = "in_progress";
+    saveDB();
+    renderLeft();
+    renderRight();
+  });
+
   document.getElementById('threadReplyBtn')?.addEventListener('click', async ()=>{
+    if(generationBusy) return;
+    generationBusy = true;
+    renderLeft();
     const btn = document.getElementById('threadReplyBtn');
     const status = document.getElementById('threadReplyStatus');
-    btn.disabled = true;
-    status.textContent = "Generating...";
-    await generateReply(l.id);
-    status.textContent = "";
+    if(btn) btn.disabled = true;
+    if(status) status.textContent = "Typing...";
+    await generateReply(l.id, true);
+    generationBusy = false;
     renderLeft();
     renderRight();
   });
@@ -411,18 +491,42 @@ function renderRight(){
 /* =========================================================
    AI reply generation (manual trigger only, batched from admin)
    ========================================================= */
-async function generateReply(id){
+function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+// Simulated human response pacing — never instant, scales a little with reply length,
+// and is randomized so leads don't all reply on the same cadence.
+function humanReplyDelay(text){
+  const thinking = 2500 + Math.random()*5500;          // 2.5s - 8s "reading and deciding"
+  const typing = Math.min((text.length || 20) * 45, 6000); // rough typing-speed simulation, capped
+  return Math.round(thinking + typing);
+}
+
+function showTypingIndicator(leadName){
+  const msgWrap = document.getElementById('threadMessages');
+  if(!msgWrap) return null;
+  const typingDiv = document.createElement('div');
+  typingDiv.className = "msg-wrap in";
+  typingDiv.innerHTML = `<div class="msg in" style="font-style:italic; color:var(--text-faint);">${leadName} is typing...</div>`;
+  msgWrap.appendChild(typingDiv);
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+  return typingDiv;
+}
+
+async function generateReply(id, showTyping){
   const l = leads.find(x=>x.id===id);
   if(!l) return;
 
   const history = l.messages.slice(-8).map(m => (m.dir==='out' ? "Sales: " : "Customer: ") + m.text).join("\n");
   const languageName = l.lang === 'fr' ? "French" : "English";
   const topic = topicById(l.topic);
+  const customLine = l.customDirection ? `\nAdditional guidance from the operator: ${l.customDirection}` : "";
   const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
 Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}.
-Conversation direction to steer toward: ${topic.prompt}
+Conversation direction to steer toward: ${topic.prompt}${customLine}
 Reply ONLY in ${languageName}, in 1-2 casual, natural sentences matching the persona above. Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
 After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy).`;
+
+  let typingDiv = (showTyping && activeLeadId===id) ? showTypingIndicator(l.name) : null;
 
   try{
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -451,6 +555,12 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     }
     if(!replyText) replyText = "(no reply)";
 
+    // Pace the reply like a real person — wait before it actually lands, keep the
+    // typing indicator up (or start one now if this lead just became active).
+    if(!typingDiv && activeLeadId===id) typingDiv = showTypingIndicator(l.name);
+    await wait(humanReplyDelay(replyText));
+
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
     const d = new Date();
     l.messages.push({dir:'in', text: replyText, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
     l.score = score;
@@ -458,30 +568,34 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
       l.status = score >= 70 ? "qualified" : "in_progress";
     }
   }catch(err){
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
     const d = new Date();
     l.messages.push({dir:'in', text:"(no reply — request failed, try again)", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
   }
   saveDB();
 }
 
+// Bulk replies run strictly one at a time — never in parallel — so it never looks
+// like several leads replying in the same instant.
 async function runBulkReplies(){
+  if(generationBusy) return;
   const pool = leads.filter(l=>selectedIds.has(l.id));
   if(pool.length===0) return;
+  generationBusy = true;
   const btn = document.getElementById('bulkReplyBtn');
   const progress = document.getElementById('bulkProgress');
-  btn.disabled = true;
+  if(btn) btn.disabled = true;
   let done = 0;
   for(const l of pool){
-    progress.textContent = `${done+1} / ${pool.length}`;
-    await generateReply(l.id);
+    if(progress) progress.textContent = `${done+1} / ${pool.length} — ${l.name}...`;
+    await generateReply(l.id, true);
     done++;
     renderLeft();
     if(activeLeadId === l.id) renderRight();
-    await new Promise(r=>setTimeout(r, 150));
   }
-  progress.textContent = "";
-  selectedIds.clear();
+  generationBusy = false;
   showToast(`Generated ${done} replies`);
+  selectedIds.clear();
   renderLeft();
 }
 
@@ -496,6 +610,7 @@ function refresh(){
   renderRight();
 }
 document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('resetAllBtn').addEventListener('click', resetAllConversations);
 window.addEventListener('storage', (e)=>{ if(e.key===DB_KEY) refresh(); });
 
 refresh();
