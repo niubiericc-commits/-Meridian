@@ -896,10 +896,14 @@ async function translateMessage(leadId, msgIdx, btnEl){
       })
     });
     const data = await response.json();
+    if(!response.ok){
+      const apiErrMsg = data?.error?.message || `HTTP ${response.status}`;
+      throw new Error(apiErrMsg);
+    }
     const block = (data.content || []).find(b => b.type === 'text');
     m.translation = block ? block.text.trim() : "（翻译失败）";
   }catch(err){
-    m.translation = "（翻译请求失败，可重试）";
+    m.translation = "（翻译请求失败：" + (err.message || "未知错误") + "）";
   }
   saveDB();
   renderPipelineChat();
