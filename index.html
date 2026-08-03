@@ -250,6 +250,13 @@
 
 <script>
 /* =========================================================
+   Config — point this at your own Cloudflare Worker proxy.
+   Calling api.anthropic.com directly from a deployed static
+   page will always fail (no key, CORS). See worker.js.
+   ========================================================= */
+const API_ENDPOINT = "https://YOUR-WORKER-SUBDOMAIN.workers.dev"; // <-- replace with your deployed worker URL
+
+/* =========================================================
    i18n
    ========================================================= */
 const UI = {
@@ -878,7 +885,7 @@ async function translateMessage(leadId, msgIdx, btnEl){
   btnEl.disabled = true;
   btnEl.textContent = t().translating;
   try{
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch(API_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
