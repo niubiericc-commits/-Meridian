@@ -1,24 +1,26 @@
 /**
- * Meridian API proxy — Cloudflare Worker
+ * Meridian API proxy — Cloudflare Worker (Groq edition, free tier)
  *
- * Purpose: your static site (index.html / admin.html) cannot safely call
- * https://api.anthropic.com directly — that would mean putting your API key
- * in browser-visible JavaScript, where anyone could steal it. This worker
- * sits in between: your key lives here as a secret, never in the page.
+ * Your front end (index.html / admin.html) sends requests shaped like
+ * Anthropic's Messages API: { model, max_tokens, system, messages }.
+ * This worker converts that into Groq's OpenAI-compatible chat completions
+ * format, calls Groq (free, no credit card), and converts the response
+ * back into the { content: [{ type: "text", text }] } shape the front end
+ * already expects — so index.html and admin.html never need to change.
  *
- *   Browser  --POST-->  this worker (has the key)  --POST-->  Anthropic API
+ *   Browser  --Anthropic-shaped POST-->  this worker (has the Groq key)
+ *            <--Anthropic-shaped JSON--  converts to/from Groq's format
+ *                                         --> https://api.groq.com
  *
  * Setup:
- *   1. Create a free Cloudflare account: https://dash.cloudflare.com/sign-up
- *   2. Workers & Pages -> Create -> Create Worker
- *   3. Paste this entire file into the editor, replacing the default code
- *   4. Settings -> Variables and Secrets -> add a secret named
- *      ANTHROPIC_API_KEY with your Anthropic API key as the value
- *      (get a key at https://console.anthropic.com/settings/keys)
- *   5. Deploy. Copy the worker URL (looks like
- *      https://meridian-proxy.YOUR-SUBDOMAIN.workers.dev)
- *   6. Paste that URL into API_ENDPOINT near the top of index.html and
- *      admin.html
+ *   1. Create a free Groq account: https://console.groq.com
+ *   2. Create an API key: https://console.groq.com/keys
+ *   3. In your Cloudflare Worker: Settings -> Variables and Secrets ->
+ *      Add -> Secret -> name it GROQ_API_KEY -> paste your key -> Deploy
+ *   4. Paste this file's contents into the Worker's Edit Code screen,
+ *      Deploy
+ *   5. index.html / admin.html already point at your worker URL from the
+ *      earlier setup — nothing else to change there
  *
  * Optional hardening: set ALLOWED_ORIGIN below to your exact site URL
  * (e.g. "https://yourname.github.io") instead of "*" once it's working,
@@ -26,6 +28,7 @@
  */
 
 const ALLOWED_ORIGIN = "*";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 export default {
   async fetch(request, env) {
@@ -43,41 +46,80 @@ export default {
       return new Response("Method not allowed", { status: 405, headers: corsHeaders });
     }
 
-    if (!env.ANTHROPIC_API_KEY) {
+    if (!env.GROQ_API_KEY) {
       return new Response(
-        JSON.stringify({ error: "ANTHROPIC_API_KEY secret is not set on this worker." }),
+        JSON.stringify({ error: { message: "GROQ_API_KEY secret is not set on this worker." } }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let body;
+    let incoming;
     try {
-      body = await request.text();
+      incoming = await request.json();
     } catch (e) {
-      return new Response("Bad request body", { status: 400, headers: corsHeaders });
+      return new Response(
+        JSON.stringify({ error: { message: "Bad request body (not valid JSON)" } }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Convert Anthropic-shaped request -> Groq (OpenAI-compatible) request
+    const groqMessages = [];
+    if (incoming.system) {
+      groqMessages.push({ role: "system", content: incoming.system });
+    }
+    for (const m of incoming.messages || []) {
+      groqMessages.push({ role: m.role, content: m.content });
     }
 
     let upstream;
     try {
-      upstream = await fetch("https://api.anthropic.com/v1/messages", {
+      upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
+          "Authorization": `Bearer ${env.GROQ_API_KEY}`,
         },
-        body,
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          max_tokens: incoming.max_tokens || 300,
+          messages: groqMessages,
+        }),
       });
     } catch (e) {
       return new Response(
-        JSON.stringify({ error: "Could not reach Anthropic API", detail: String(e) }),
+        JSON.stringify({ error: { message: "Could not reach Groq API: " + String(e) } }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const responseBody = await upstream.text();
-    return new Response(responseBody, {
-      status: upstream.status,
+    let groqData;
+    try {
+      groqData = await upstream.json();
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: { message: "Groq returned a non-JSON response" } }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!upstream.ok) {
+      // Groq's error shape is usually { error: { message, type, code } } already,
+      // pass it through as-is so the front end can display it.
+      return new Response(JSON.stringify(groqData), {
+        status: upstream.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Convert Groq response -> Anthropic-shaped response the front end expects
+    const replyText = groqData?.choices?.[0]?.message?.content ?? "";
+    const anthropicShaped = {
+      content: [{ type: "text", text: replyText }],
+    };
+
+    return new Response(JSON.stringify(anthropicShaped), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   },
