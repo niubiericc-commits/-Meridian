@@ -434,7 +434,7 @@ function renderRight(){
     <div class="thread-messages" id="threadMessages"></div>
 
     <div class="side-block">
-      <div class="field-label">AI reply direction</div>
+      <div class="field-label">AI reply direction (used only if you choose "AI replies" below)</div>
       <select class="side-select" id="dirSelect">
         ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${l.topic===tp.id?"selected":""}>${tp.en}</option>`).join("")}
       </select>
@@ -444,16 +444,20 @@ function renderRight(){
     </div>
 
     <div class="side-block">
-      <div class="field-label">Generate AI reply</div>
-      <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) && !generationBusy ? "" : "disabled"}>Generate AI reply</button>
-      <span class="toolbar-label" id="threadReplyStatus"></span>
-      <div class="typing-hint">Replies are paced to feel human — this can take a few seconds.</div>
-    </div>
+      <div class="field-label" style="font-size:11.5px; color:var(--text);">Who replies for this lead?</div>
 
-    <div class="side-block">
-      <div class="field-label">Reply directly as yourself</div>
-      <textarea class="side-input" id="manualReplyInput" placeholder="Type a message to send to this lead..."></textarea>
-      <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as you</button>
+      <div style="margin-top:10px;">
+        <div class="field-label" style="margin:0 0 6px;">Option A — AI replies, following the direction above</div>
+        <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) && !generationBusy ? "" : "disabled"}>Generate AI reply</button>
+        <span class="toolbar-label" id="threadReplyStatus"></span>
+        <div class="typing-hint">Paced to feel human — can take anywhere from a few seconds to under a minute.</div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="field-label" style="margin:0 0 6px;">Option B — you write the reply yourself</div>
+        <textarea class="side-input" id="manualReplyInput" placeholder="Type a message to send to this lead..."></textarea>
+        <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as you</button>
+      </div>
     </div>
   `;
   const msgWrap = document.getElementById('threadMessages');
@@ -508,10 +512,18 @@ function renderRight(){
    ========================================================= */
 function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
-// Simulated human response pacing — never instant, scales a little with reply length,
-// and is randomized so leads don't all reply on the same cadence.
+// Simulated human response pacing — never instant, and varies a lot between
+// leads (some reply fast, some take a while), not a uniform cadence.
 function humanReplyDelay(text){
-  const thinking = 2500 + Math.random()*5500;          // 2.5s - 8s "reading and deciding"
+  const roll = Math.random();
+  let thinking;
+  if(roll < 0.45){
+    thinking = 2000 + Math.random()*4000;       // fast responder: 2s - 6s
+  } else if(roll < 0.8){
+    thinking = 6000 + Math.random()*10000;      // average: 6s - 16s
+  } else {
+    thinking = 16000 + Math.random()*30000;     // slow responder: 16s - 46s
+  }
   const typing = Math.min((text.length || 20) * 45, 6000); // rough typing-speed simulation, capped
   return Math.round(thinking + typing);
 }
@@ -537,9 +549,16 @@ async function generateReply(id, showTyping){
   const customLine = l.customDirection ? `\nAdditional guidance from the operator: ${l.customDirection}` : "";
   const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
 Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}.
-Conversation direction to steer toward: ${topic.prompt}${customLine}
-Reply ONLY in ${languageName}, in 1-2 casual, natural sentences matching the persona above. Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
-After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy).`;
+
+Above all, react naturally and proportionally to what the salesperson's most recent message actually says. Match its length, tone, and topic:
+- If it's just a greeting ("hi", "hello there") or something short and generic, reply with an equally short, casual greeting of your own. Do NOT bring up pricing, products, objections, or any business topic unprompted.
+- If it asks a direct question, answer that specific question.
+- Never jump ahead to a topic the salesperson hasn't actually raised yet.
+
+Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}
+
+Reply ONLY in ${languageName}, in 1-2 casual, natural sentences matching the persona above and proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
+After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy). A single greeting exchange should score low (near 0) — only raise the score once real interest or business discussion actually happens.`;
 
   let typingDiv = (showTyping && activeLeadId===id) ? showTypingIndicator(l.name) : null;
 
