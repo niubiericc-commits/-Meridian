@@ -266,6 +266,7 @@ const UI = {
     stTotal:"Total leads", stContacted:"Contacted", stQualified:"Qualified", stDisqualified:"Disqualified",
     importTitle:"Import leads", importSub:"Pull a new batch of leads into the database before running outreach",
     importBtn: n => `Import ${n} new leads`,
+    importBtnPlain: "Import leads",
     importedToast: n => `Imported ${n} new leads`,
     recentImports:"Recently imported",
     adminTitle:"Conversation direction", adminSub:"Bulk-assign the topic angle the AI should steer each conversation toward",
@@ -303,6 +304,7 @@ const UI = {
     stTotal:"客户总数", stContacted:"已触达", stQualified:"已合格", stDisqualified:"已淘汰",
     importTitle:"导入客户", importSub:"在发起触达之前，先批量导入一批新客户到数据库",
     importBtn: n => `导入 ${n} 位新客户`,
+    importBtnPlain: "批量导入客户",
     importedToast: n => `已导入 ${n} 位新客户`,
     recentImports:"最近导入",
     adminTitle:"对话方向设置", adminSub:"批量为客户设置AI对话的话题导向",
@@ -545,7 +547,13 @@ function renderImport(){
     <div class="page-inner">
       <div class="page-head">
         <div><div class="page-title">${s.importTitle}</div><div class="page-sub">${s.importSub}</div></div>
-        <button class="btn btn-primary" id="importBtn">${s.importBtn(10)}</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="importCount" value="50" min="1" max="2000" style="width:90px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:var(--radius-sm); font-size:13px; font-family:var(--font-sans);">
+          <button class="btn btn-primary" id="importBtn">${s.importBtnPlain}</button>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="num">${leads.length}</div><div class="lbl">${s.stTotal}</div></div>
       </div>
       ${leads.length===0 ? `
         <div class="empty-state"><div class="title">${s.emptyImportTitle}</div><div class="body">${s.emptyImportBody}</div></div>
@@ -928,10 +936,11 @@ function renderPage(){
 function wirePageEvents(){
   if(currentPage==="import"){
     document.getElementById('importBtn')?.addEventListener('click', ()=>{
-      const batch = genLeadBatch(10);
+      const n = Math.max(1, Math.min(2000, parseInt(document.getElementById('importCount').value, 10) || 50));
+      const batch = genLeadBatch(n);
       leads = leads.concat(batch);
       saveDB();
-      showToast(t().importedToast(10));
+      showToast(t().importedToast(n));
       renderPage();
     });
   }
