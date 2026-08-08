@@ -244,6 +244,7 @@ let selectedIds = new Set();
 let topicFilter = "all";
 let statusFilter = "awaiting"; // awaiting = has an unanswered outbound message
 let generationBusy = false; // global lock — only one lead replies at a time, never in parallel
+let responseRatePct = 30; // % of bulk-selected leads that actually get a simulated reply this round
 
 function resetAllConversations(){
   if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
@@ -335,9 +336,13 @@ function renderLeft(){
     </div>
 
     <div class="toolbar" style="margin-bottom:18px;">
+      <span class="toolbar-label">Simulated response rate</span>
+      <input type="number" id="responseRateInput" value="${responseRatePct}" min="1" max="100" style="width:64px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:12.5px; font-family:var(--font-sans);"> <span class="toolbar-label">%</span>
+      <div class="sep"></div>
       <button class="btn btn-primary" id="bulkReplyBtn" ${(selCount===0 || generationBusy)?"disabled":""}>Generate AI replies for ${selCount} selected</button>
       <span class="toolbar-label" id="bulkProgress">${generationBusy ? "Generating — please wait, one lead at a time..." : ""}</span>
     </div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Real SMS/outreach campaigns don't get a reply from everyone — this caps what share of the selected leads will actually respond this round (rest stay marked "awaiting"). Typical two-way conversational reply rates run roughly 2–15% for cold contacts.</div>
 
     ${pool.length===0 ? `
       <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
@@ -386,6 +391,9 @@ function renderLeft(){
   document.getElementById('selectAllBtn').addEventListener('click', ()=>{ pool.forEach(l=>selectedIds.add(l.id)); renderLeft(); });
   document.getElementById('clearSelBtn').addEventListener('click', ()=>{ selectedIds.clear(); renderLeft(); });
   document.getElementById('bulkReplyBtn').addEventListener('click', runBulkReplies);
+  document.getElementById('responseRateInput')?.addEventListener('change', (e)=>{
+    responseRatePct = Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 30));
+  });
   document.querySelectorAll('.row-cb').forEach(cb=>{
     cb.addEventListener('click', (e)=>e.stopPropagation());
     cb.addEventListener('change', (e)=>{
@@ -588,12 +596,20 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
   saveDB();
 }
 
-// Bulk replies run strictly one at a time — never in parallel — so it never looks
-// like several leads replying in the same instant.
+// Bulk replies run strictly one at a time — never in parallel — and only a
+// randomly-sampled share of the selection actually "replies", mirroring how
+// real outreach campaigns never get a response from every contact.
 async function runBulkReplies(){
   if(generationBusy) return;
-  const pool = leads.filter(l=>selectedIds.has(l.id));
-  if(pool.length===0) return;
+  const fullPool = leads.filter(l=>selectedIds.has(l.id));
+  if(fullPool.length===0) return;
+
+  const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
+  const shuffled = [...fullPool].sort(()=>Math.random()-0.5);
+  const responderCount = Math.max(1, Math.round(fullPool.length * rate));
+  const pool = shuffled.slice(0, responderCount);
+  const skipped = fullPool.length - pool.length;
+
   generationBusy = true;
   const btn = document.getElementById('bulkReplyBtn');
   const progress = document.getElementById('bulkProgress');
@@ -607,7 +623,7 @@ async function runBulkReplies(){
     if(activeLeadId === l.id) renderRight();
   }
   generationBusy = false;
-  showToast(`Generated ${done} replies`);
+  showToast(`${done} of ${fullPool.length} selected leads replied (${skipped} stayed silent — ${responseRatePct}% simulated response rate)`);
   selectedIds.clear();
   renderLeft();
 }
