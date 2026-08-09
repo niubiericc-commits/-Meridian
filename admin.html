@@ -411,7 +411,7 @@ function renderLeft(){
       <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Add ${selCount} selected to queue</button>
       <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
     </div>
-    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">The response rate applies to both the hosted auto-reply above and the queue — real SMS/outreach campaigns don't get a reply from everyone. Typical two-way conversational reply rates run roughly 2–15% for cold contacts.</div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">This response rate only affects hosted auto-reply above (which lead it randomly picks next, mimicking real campaigns where not everyone replies). It has no effect on the manual queue below — whatever you select there, all of it gets queued.</div>
 
     ${bulkQueue.length>0 ? `
     <div class="card" style="margin-bottom:18px;">
@@ -834,11 +834,10 @@ function autoPilotTick(){
 }
 
 // Manual bulk trigger — builds a visible, editable queue instead of firing
-// blindly. Only a randomly-sampled share of the selection is queued at all
-// (per the response rate), mirroring how real campaigns never get a reply
-// from everyone. The queue processes with up to concurrencyCap() leads in
-// flight at once, and can be edited (reordered / items removed, even
-// mid-flight) while it runs.
+// blindly. Every eligible lead you selected goes into the queue — no
+// response-rate sampling here, that's reserved for the hosted auto-reply
+// background trickle. What you check is exactly what runs, and it's all
+// visible and editable (reorder / remove, even mid-flight) below.
 function startBulkQueue(){
   const queuedIds = new Set(bulkQueue.map(q=>q.id));
   const fullSelection = leads.filter(l=>selectedIds.has(l.id));
@@ -847,20 +846,14 @@ function startBulkQueue(){
   const eligible = fullSelection.filter(l=>!isPaused(l) && !queuedIds.has(l.id));
   if(eligible.length===0){ selectedIds.clear(); renderLeft(); return; }
 
-  const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
-  const shuffled = [...eligible].sort(()=>Math.random()-0.5);
-  const responderCount = Math.max(1, Math.round(eligible.length * rate));
-  const chosen = shuffled.slice(0, responderCount);
-  const notChosen = eligible.length - chosen.length;
-
-  bulkQueue = bulkQueue.concat(chosen.map(l=>({id: l.id, status: 'waiting', source: 'manual'})));
+  bulkQueue = bulkQueue.concat(eligible.map(l=>({id: l.id, status: 'waiting', source: 'manual'})));
   selectedIds.clear();
 
   const notes = [];
-  if(pausedCount>0) notes.push(`${pausedCount} paused`);
+  if(pausedCount>0) notes.push(`${pausedCount} paused, left out`);
   if(alreadyQueuedCount>0) notes.push(`${alreadyQueuedCount} already in queue`);
-  const noteStr = notes.length ? ` (${notes.join(", ")}, left out)` : "";
-  showToast(`Queued ${chosen.length} of ${fullSelection.length} selected (${notChosen} not picked this round — ${responseRatePct}% simulated response rate${noteStr})`);
+  const noteStr = notes.length ? ` (${notes.join(", ")})` : "";
+  showToast(`Queued all ${eligible.length} selected${noteStr}`);
 
   advanceQueue();
   renderLeft();
