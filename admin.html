@@ -462,6 +462,7 @@ function renderLeft(){
         <thead>
           <tr>
             <th style="width:30px;"></th>
+            <th style="width:60px;">Hosted</th>
             <th>Lead</th>
             <th>Direction</th>
             <th>Last message</th>
@@ -476,6 +477,7 @@ function renderLeft(){
             return `
             <tr class="row-clickable ${l.id===activeLeadId?'row-selected':''}" data-open="${l.id}">
               <td><input type="checkbox" data-id="${l.id}" class="row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
+              <td style="text-align:center;"><input type="checkbox" data-hosted-id="${l.id}" class="hosted-cb" ${l.hosted?"checked":""} title="Add/remove from hosted list"></td>
               <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}${l.hosted ? ' <span style="color:#8f9dff;" title="In hosted list">●</span>' : ''}</div></td>
               <td><span class="topic-pill">${topicById(l.topic).en}</span></td>
               <td>
@@ -531,6 +533,19 @@ function renderLeft(){
     cb.addEventListener('change', (e)=>{
       const id = e.target.getAttribute('data-id');
       if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      renderLeft();
+    });
+  });
+  document.querySelectorAll('.hosted-cb').forEach(cb=>{
+    cb.addEventListener('click', (e)=>e.stopPropagation());
+    cb.addEventListener('change', (e)=>{
+      const id = e.target.getAttribute('data-hosted-id');
+      const l = leads.find(x=>x.id===id);
+      if(l){
+        l.hosted = e.target.checked;
+        saveDB();
+        if(l.hosted && hostedEnabled) hostedTick(); // pick it up right away instead of waiting for the next tick
+      }
       renderLeft();
     });
   });
