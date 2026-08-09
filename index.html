@@ -420,7 +420,8 @@ function genLead(){
     createdAt: Date.now(),
     pausedUntil: null,          // timestamp (ms) — while in the future, this lead won't auto-reply
     lastPauseMessageCount: 0,   // message count when the lead last paused, to measure the next stretch
-    pauseThreshold: 9 + Math.floor(Math.random()*5) // 9-13 messages before finding an excuse to step away
+    pauseThreshold: 9 + Math.floor(Math.random()*5), // 9-13 messages before finding an excuse to step away
+    hosted: false // whether this lead is in the admin's managed/hosted auto-reply list
   };
 }
 function genLeadBatch(n){
