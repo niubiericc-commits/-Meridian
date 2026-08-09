@@ -372,6 +372,18 @@ const attitudes = [
   "has bought something similar before, trusts the seller, casual tone",
   "busy, replies briefly or sometimes leaves messages unread"
 ];
+const speechStyles = [
+  "keeps replies very short and clipped, rarely more than a few words",
+  "writes in complete, slightly formal sentences with proper punctuation",
+  "casual texter — lowercase, minimal punctuation, the occasional 'lol' or 'haha'",
+  "asks a lot of follow-up questions instead of just answering",
+  "a bit scattered — sometimes trails off or changes subject mid-reply",
+  "very polite and a little wordy, tends to over-explain",
+  "blunt and to the point, doesn't soften things much",
+  "friendly and chatty, adds small personal asides",
+  "skeptical phrasing — hedges with 'I guess' / 'maybe' / 'not sure but'",
+  "enthusiastic, uses exclamation points and upbeat language"
+];
 
 function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function randPhone(){
@@ -398,6 +410,7 @@ function genLead(){
     lang,
     industryIdx,
     attitude: randPick(attitudes),
+    speechStyle: randPick(speechStyles),
     topic: randPick(TOPIC_DIRECTIONS).id,
     status: "new",        // new | in_progress | qualified | disqualified
     manualOverride: false,
