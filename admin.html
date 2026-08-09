@@ -415,31 +415,36 @@ function renderLeft(){
 
     ${bulkQueue.length>0 ? `
     <div class="card" style="margin-bottom:18px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-        <div style="font-size:13px; font-weight:600;">Reply queue (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done)</div>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <div style="font-size:13px; font-weight:600;">Reply queue — ${bulkQueue.length} total (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done)</div>
         <div style="display:flex; gap:8px;">
           <button class="btn-mini" id="clearFinishedBtn">Clear finished</button>
           <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
         </div>
       </div>
-      <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+      <div class="toolbar-label" style="margin-bottom:10px; font-size:11px;">Everything the AI is doing or about to do lands here — both manual sends and hosted auto-reply picks, nothing happens off-list.</div>
+      <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
         ${bulkQueue.map((q, qi) => {
           const ql = leads.find(x=>x.id===q.id);
           if(!ql) return "";
           const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : "done";
           const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : "var(--green)";
+          const sourceTag = q.source==='auto' ? `<span class="topic-pill" style="border-color:#3a3fb0; color:#8f9dff;">auto</span>` : `<span class="topic-pill">manual</span>`;
           return `
           <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--border-soft); border-radius:8px;">
             <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
             <div style="flex:1; font-size:12.5px;">${ql.name}</div>
-            <div style="font-size:11px; color:${statusColor}; min-width:70px;">${statusText}</div>
+            ${sourceTag}
+            <div style="font-size:11px; color:${statusColor}; min-width:70px; text-align:right;">${statusText}</div>
             ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
             ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
           </div>`;
         }).join("")}
       </div>
     </div>
-    ` : ""}
+    ` : (autoPilotEnabled ? `
+    <div class="toolbar-label" style="margin-bottom:14px;">Hosted auto-reply is on — items will appear in a queue here as soon as it picks a lead to reply to.</div>
+    ` : "")}
 
     ${pool.length===0 ? `
       <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
@@ -809,24 +814,22 @@ function setAutoPilot(enabled){
 
 function autoPilotTick(){
   if(!autoPilotEnabled) return;
-  const awaiting = leads.filter(l=>needsReply(l) && !isPaused(l));
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const awaiting = leads.filter(l=>needsReply(l) && !isPaused(l) && !queuedIds.has(l.id));
   if(awaiting.length===0) return;
 
   const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
-  let slots = concurrencyCap() - activeGenerations;
-  if(slots <= 0) return;
 
-  // Shuffle so repeated ticks don't always favor the same leads first.
-  const shuffled = [...awaiting].sort(()=>Math.random()-0.5);
-  for(const l of shuffled){
-    if(slots <= 0) break;
-    if(Math.random() > rate) continue; // this lead stays silent for now, matches real campaigns
-    slots--;
-    generateReply(l.id, true).then(()=>{
-      renderLeft();
-      if(activeLeadId === l.id) renderRight();
-    });
-  }
+  // Pick one candidate per tick and roll against the response rate — spreads
+  // things out over real time instead of bursting. It goes into the SAME
+  // visible queue as manual bulk sends, tagged as auto, so nothing happens
+  // off-screen — everything the AI is about to do (or is doing) shows up
+  // in the queue list below.
+  const candidate = awaiting[Math.floor(Math.random()*awaiting.length)];
+  if(Math.random() > rate) return;
+
+  bulkQueue.push({id: candidate.id, status: 'waiting', source: 'auto'});
+  advanceQueue();
   renderLeft();
 }
 
@@ -837,10 +840,12 @@ function autoPilotTick(){
 // flight at once, and can be edited (reordered / items removed, even
 // mid-flight) while it runs.
 function startBulkQueue(){
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
   const fullSelection = leads.filter(l=>selectedIds.has(l.id));
   const pausedCount = fullSelection.filter(isPaused).length;
-  const eligible = fullSelection.filter(l=>!isPaused(l));
-  if(eligible.length===0) return;
+  const alreadyQueuedCount = fullSelection.filter(l=>queuedIds.has(l.id)).length;
+  const eligible = fullSelection.filter(l=>!isPaused(l) && !queuedIds.has(l.id));
+  if(eligible.length===0){ selectedIds.clear(); renderLeft(); return; }
 
   const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
   const shuffled = [...eligible].sort(()=>Math.random()-0.5);
@@ -848,11 +853,14 @@ function startBulkQueue(){
   const chosen = shuffled.slice(0, responderCount);
   const notChosen = eligible.length - chosen.length;
 
-  bulkQueue = bulkQueue.concat(chosen.map(l=>({id: l.id, status: 'waiting'})));
+  bulkQueue = bulkQueue.concat(chosen.map(l=>({id: l.id, status: 'waiting', source: 'manual'})));
   selectedIds.clear();
 
-  const pausedNote = pausedCount>0 ? `, ${pausedCount} selected leads are paused and were left out` : "";
-  showToast(`Queued ${chosen.length} of ${fullSelection.length} selected (${notChosen} not picked this round — ${responseRatePct}% simulated response rate${pausedNote})`);
+  const notes = [];
+  if(pausedCount>0) notes.push(`${pausedCount} paused`);
+  if(alreadyQueuedCount>0) notes.push(`${alreadyQueuedCount} already in queue`);
+  const noteStr = notes.length ? ` (${notes.join(", ")}, left out)` : "";
+  showToast(`Queued ${chosen.length} of ${fullSelection.length} selected (${notChosen} not picked this round — ${responseRatePct}% simulated response rate${noteStr})`);
 
   advanceQueue();
   renderLeft();
