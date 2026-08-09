@@ -428,7 +428,7 @@ function renderLeft(){
     ${bulkQueue.length>0 ? `
     <div class="card" style="margin-bottom:18px;">
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-        <div style="font-size:13px; font-weight:600;">Reply queue — ${bulkQueue.length} total (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done)</div>
+        <div style="font-size:13px; font-weight:600;">Reply queue — ${bulkQueue.length} total (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done${bulkQueue.filter(q=>q.status==='failed').length>0 ? `, <span style="color:var(--red);">${bulkQueue.filter(q=>q.status==='failed').length} failed</span>` : ""})</div>
         <div style="display:flex; gap:8px;">
           <button class="btn-mini" id="clearFinishedBtn">Clear finished</button>
           <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
@@ -439,14 +439,15 @@ function renderLeft(){
         ${bulkQueue.map((q, qi) => {
           const ql = leads.find(x=>x.id===q.id);
           if(!ql) return "";
-          const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : "done";
-          const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : "var(--green)";
+          const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : q.status==='failed' ? "failed" : "done";
+          const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : q.status==='failed' ? "var(--red)" : "var(--green)";
           return `
-          <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--border-soft); border-radius:8px;">
+          <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid ${q.status==='failed'?'#4a2226':'var(--border-soft)'}; border-radius:8px;">
             <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
             <div style="flex:1; font-size:12.5px;">${ql.name}</div>
             <div style="font-size:11px; color:${statusColor}; min-width:70px; text-align:right;">${statusText}</div>
             ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
+            ${q.status==='failed' ? `<button class="btn-mini" data-retry="${q.id}" style="color:var(--blue);">Retry</button>` : ""}
             ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
           </div>`;
         }).join("")}
@@ -517,6 +518,9 @@ function renderLeft(){
   });
   document.querySelectorAll('[data-remove]').forEach(btn=>{
     btn.addEventListener('click', (e)=>removeQueueItem(e.target.getAttribute('data-remove')));
+  });
+  document.querySelectorAll('[data-retry]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>retryQueueItem(e.target.getAttribute('data-retry')));
   });
   document.getElementById('speedModeSel')?.addEventListener('change', (e)=>{
     speedMode = e.target.value;
@@ -708,9 +712,13 @@ function showTypingIndicator(leadName){
 
 async function generateReply(id, showTyping, signal, priority){
   const l = leads.find(x=>x.id===id);
-  if(!l) return;
+  if(!l){
+    console.error("generateReply: lead not found, id=", id);
+    return false;
+  }
 
   activeGenerations++;
+  let success = false;
   try{
 
   const history = l.messages.slice(-8).map(m => (m.dir==='out' ? "Sales: " : "Customer: ") + m.text).join("\n");
@@ -786,27 +794,36 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     await wait(humanReplyDelay(replyText, priority), signal);
 
     if(typingDiv && typingDiv.parentNode) typingDiv.remove();
+
+    // Re-fetch the live lead object right before mutating — if the leads
+    // array got reloaded (e.g. a refresh happened) while we were waiting,
+    // this makes sure the message lands on the object that actually gets
+    // saved, instead of an orphaned copy whose changes would be lost.
+    const live = leads.find(x=>x.id===id) || l;
     const d = new Date();
-    l.messages.push({dir:'in', text: replyText, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
-    l.score = score;
-    if(!l.manualOverride){
-      l.status = score >= 70 ? "qualified" : "in_progress";
+    live.messages.push({dir:'in', text: replyText, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+    live.score = score;
+    if(!live.manualOverride){
+      live.status = score >= 70 ? "qualified" : "in_progress";
     }
 
     if(shouldWrapUp){
       const pauseHours = 2 + Math.random(); // 2-3 real hours
-      l.pausedUntil = Date.now() + pauseHours * 3600 * 1000;
-      l.lastPauseMessageCount = l.messages.length;
-      l.pauseThreshold = 9 + Math.floor(Math.random()*5); // 9-13 for the next stretch
+      live.pausedUntil = Date.now() + pauseHours * 3600 * 1000;
+      live.lastPauseMessageCount = live.messages.length;
+      live.pauseThreshold = 9 + Math.floor(Math.random()*5); // 9-13 for the next stretch
     }
+    success = true;
   }catch(err){
     if(typingDiv && typingDiv.parentNode) typingDiv.remove();
     if(err && err.name === 'AbortError'){
       // Deliberately cancelled from the queue — say nothing, leave the
       // conversation exactly as it was before this attempt.
     } else {
+      const live = leads.find(x=>x.id===id) || l;
       const d = new Date();
-      l.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+      live.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+      success = true; // an error message was recorded, so it's visible — not a silent no-op
     }
   }
   saveDB();
@@ -814,6 +831,7 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
   } finally {
     activeGenerations--;
   }
+  return success;
 }
 
 
@@ -856,11 +874,19 @@ function advanceQueue(){
     slots--;
     const controller = new AbortController();
     abortControllers[item.id] = controller;
-    generateReply(item.id, true, controller.signal).then(()=>{
+    generateReply(item.id, true, controller.signal).then((success)=>{
       delete abortControllers[item.id];
-      item.status = 'done';
+      item.status = success ? 'done' : 'failed';
       renderLeft();
       if(activeLeadId === item.id) renderRight();
+      advanceQueue();
+    }).catch((err)=>{
+      // Belt and braces — generateReply itself shouldn't throw, but if
+      // something unexpected escapes, never leave the item stuck silently.
+      console.error("Queue item errored unexpectedly:", item.id, err);
+      delete abortControllers[item.id];
+      item.status = 'failed';
+      renderLeft();
       advanceQueue();
     });
   }
@@ -928,6 +954,15 @@ function removeQueueItem(id){
     if(c) c.abort();
   }
   bulkQueue.splice(idx,1);
+  renderLeft();
+}
+
+// Put a failed item back to 'waiting' and let the queue pick it up again.
+function retryQueueItem(id){
+  const item = bulkQueue.find(q=>q.id===id && q.status==='failed');
+  if(!item) return;
+  item.status = 'waiting';
+  advanceQueue();
   renderLeft();
 }
 
