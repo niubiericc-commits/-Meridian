@@ -404,7 +404,10 @@ function genLead(){
     score: 0,
     messages: [],
     unread: false,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    pausedUntil: null,          // timestamp (ms) — while in the future, this lead won't auto-reply
+    lastPauseMessageCount: 0,   // message count when the lead last paused, to measure the next stretch
+    pauseThreshold: 9 + Math.floor(Math.random()*5) // 9-13 messages before finding an excuse to step away
   };
 }
 function genLeadBatch(n){
