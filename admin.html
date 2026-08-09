@@ -270,13 +270,12 @@ let speedMode = "realistic"; // "realistic" (sequential, human-paced) | "bulk" (
 const BULK_CONCURRENCY = 8;
 function concurrencyCap(){ return speedMode === "bulk" ? BULK_CONCURRENCY : 1; }
 function atCapacity(){ return activeGenerations >= concurrencyCap(); }
-let responseRatePct = 30; // % of bulk-selected leads that actually get a simulated reply this round
-let autoPilotEnabled = false; // hosted auto-reply — background pacing, no manual clicks needed
-let autoPilotTimer = null;
 
 // Manual bulk queue — visible, editable list of leads picked to reply this
 // round. Separate from selectedIds, which is only used to build a new queue;
 // once a queue is running, changing checkboxes elsewhere never touches it.
+// This is the ONLY thing that ever generates a reply — nothing runs on its
+// own in the background.
 let bulkQueue = []; // [{ id, status: 'waiting' | 'active' | 'done' }]
 let abortControllers = {}; // leadId -> AbortController, for in-flight generations only
 
@@ -362,21 +361,6 @@ function renderLeft(){
       <div class="stat-card"><div class="num" style="color:var(--green)">${qualified}</div><div class="lbl">Qualified</div></div>
     </div>
 
-    <div class="card" style="margin-bottom:18px; ${autoPilotEnabled ? 'border-color:#3a3fb0;' : ''}">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <div>
-          <div style="font-size:13px; font-weight:600;">Hosted auto-reply</div>
-          <div class="toolbar-label" style="margin-top:2px;">
-            When on, awaiting leads reply on their own over time — random human-like delays, respecting the response rate below. No need to click anything. Leave this tab open for it to keep running.
-          </div>
-        </div>
-        <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer;">
-          <span class="toolbar-label" id="autoPilotStateLabel">${autoPilotEnabled ? "Running" : "Off"}</span>
-          <input type="checkbox" id="autoPilotToggle" ${autoPilotEnabled?"checked":""} style="width:34px; height:18px;">
-        </label>
-      </div>
-    </div>
-
     <div class="toolbar">
       <select id="statusFilterSel">
         <option value="awaiting" ${statusFilter==="awaiting"?"selected":""}>Awaiting reply</option>
@@ -405,13 +389,10 @@ function renderLeft(){
     </div>
 
     <div class="toolbar" style="margin-bottom:18px;">
-      <span class="toolbar-label">Simulated response rate</span>
-      <input type="number" id="responseRateInput" value="${responseRatePct}" min="1" max="100" style="width:64px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:12.5px; font-family:var(--font-sans);"> <span class="toolbar-label">%</span>
-      <div class="sep"></div>
-      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Add ${selCount} selected to queue</button>
+      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Run — add ${selCount} selected to queue</button>
       <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
     </div>
-    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">This response rate only affects hosted auto-reply above (which lead it randomly picks next, mimicking real campaigns where not everyone replies). It has no effect on the manual queue below — whatever you select there, all of it gets queued.</div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Nothing generates a reply unless you select leads and click Run, or use the priority button inside a lead's own conversation. Nothing runs on its own in the background.</div>
 
     ${bulkQueue.length>0 ? `
     <div class="card" style="margin-bottom:18px;">
@@ -422,19 +403,17 @@ function renderLeft(){
           <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
         </div>
       </div>
-      <div class="toolbar-label" style="margin-bottom:10px; font-size:11px;">Everything the AI is doing or about to do lands here — both manual sends and hosted auto-reply picks, nothing happens off-list.</div>
+      <div class="toolbar-label" style="margin-bottom:10px; font-size:11px;">Every reply the AI is doing or about to do lands here — nothing happens off-list, and nothing runs unless you clicked Run.</div>
       <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
         ${bulkQueue.map((q, qi) => {
           const ql = leads.find(x=>x.id===q.id);
           if(!ql) return "";
           const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : "done";
           const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : "var(--green)";
-          const sourceTag = q.source==='auto' ? `<span class="topic-pill" style="border-color:#3a3fb0; color:#8f9dff;">auto</span>` : `<span class="topic-pill">manual</span>`;
           return `
           <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--border-soft); border-radius:8px;">
             <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
             <div style="flex:1; font-size:12.5px;">${ql.name}</div>
-            ${sourceTag}
             <div style="font-size:11px; color:${statusColor}; min-width:70px; text-align:right;">${statusText}</div>
             ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
             ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
@@ -442,9 +421,7 @@ function renderLeft(){
         }).join("")}
       </div>
     </div>
-    ` : (autoPilotEnabled ? `
-    <div class="toolbar-label" style="margin-bottom:14px;">Hosted auto-reply is on — items will appear in a queue here as soon as it picks a lead to reply to.</div>
-    ` : "")}
+    ` : ""}
 
     ${pool.length===0 ? `
       <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
@@ -500,12 +477,6 @@ function renderLeft(){
   });
   document.querySelectorAll('[data-remove]').forEach(btn=>{
     btn.addEventListener('click', (e)=>removeQueueItem(e.target.getAttribute('data-remove')));
-  });
-  document.getElementById('responseRateInput')?.addEventListener('change', (e)=>{
-    responseRatePct = Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 30));
-  });
-  document.getElementById('autoPilotToggle')?.addEventListener('change', (e)=>{
-    setAutoPilot(e.target.checked);
   });
   document.getElementById('speedModeSel')?.addEventListener('change', (e)=>{
     speedMode = e.target.value;
@@ -569,15 +540,15 @@ function renderRight(){
         <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) ? "" : "disabled"}>Generate AI reply${isPaused(l) ? " (override pause)" : ""}</button>
         <span class="toolbar-label" id="threadReplyStatus"></span>
         <div class="typing-hint">
-          Priority lane — under a few seconds, not the long bulk delay. Always fires right away, even if bulk or hosted auto-reply is busy elsewhere; if this lead is sitting in the queue below, it's pulled out first so it isn't answered twice.
+          Priority lane — under a few seconds, not the long bulk delay. Always fires right away, even if the queue is busy elsewhere; if this lead is sitting in the queue below, it's pulled out first so it isn't answered twice.
           ${isPaused(l) ? `<br><span style="color:#e3a86a;">This lead said they'd be away until ${formatClock(l.pausedUntil)} — clicking generates a reply anyway.</span>` : ""}
         </div>
       </div>
 
       <div style="margin-top:16px;">
-        <div class="field-label" style="margin:0 0 6px;">Option B — you write the reply yourself</div>
-        <textarea class="side-input" id="manualReplyInput" placeholder="Type a message to send to this lead..."></textarea>
-        <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as you</button>
+        <div class="field-label" style="margin:0 0 6px;">Option B — you write the customer's reply yourself (instant, no AI, no queue)</div>
+        <textarea class="side-input" id="manualReplyInput" placeholder="Type what this lead says back..."></textarea>
+        <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as the customer</button>
       </div>
     </div>
   `;
@@ -602,12 +573,16 @@ function renderRight(){
   });
 
   document.getElementById('manualReplyBtn').addEventListener('click', ()=>{
+    // This is YOU dictating what the customer says back — completes the
+    // exchange immediately. Pull it out of the queue first if it's sitting
+    // there, so the AI doesn't also try to answer for the same turn.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
     const input = document.getElementById('manualReplyInput');
     const text = input.value.trim();
     if(!text) return;
     const d = new Date();
-    l.messages.push({dir:'out', text, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation:null});
-    if(l.status==="new") l.status = "in_progress";
+    l.messages.push({dir:'in', text, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation:null});
+    input.value = "";
     saveDB();
     renderLeft();
     renderRight();
@@ -794,50 +769,11 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
 }
 
 
-// Hosted auto-reply — runs in the background while this tab stays open.
-// Every few seconds it looks at leads awaiting a reply and, respecting the
-// response-rate setting, may generate replies via generateReply() — which
-// already applies a randomized human-like delay before each message lands.
-// In "realistic" mode this stays to one lead at a time; in "bulk" mode it can
-// launch several concurrently, up to the current concurrency cap.
-function setAutoPilot(enabled){
-  autoPilotEnabled = enabled;
-  if(enabled && !autoPilotTimer){
-    autoPilotTimer = setInterval(autoPilotTick, 3000);
-    autoPilotTick(); // check immediately instead of waiting for the first interval
-  } else if(!enabled && autoPilotTimer){
-    clearInterval(autoPilotTimer);
-    autoPilotTimer = null;
-  }
-  renderLeft();
-}
-
-function autoPilotTick(){
-  if(!autoPilotEnabled) return;
-  const queuedIds = new Set(bulkQueue.map(q=>q.id));
-  const awaiting = leads.filter(l=>needsReply(l) && !isPaused(l) && !queuedIds.has(l.id));
-  if(awaiting.length===0) return;
-
-  const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
-
-  // Pick one candidate per tick and roll against the response rate — spreads
-  // things out over real time instead of bursting. It goes into the SAME
-  // visible queue as manual bulk sends, tagged as auto, so nothing happens
-  // off-screen — everything the AI is about to do (or is doing) shows up
-  // in the queue list below.
-  const candidate = awaiting[Math.floor(Math.random()*awaiting.length)];
-  if(Math.random() > rate) return;
-
-  bulkQueue.push({id: candidate.id, status: 'waiting', source: 'auto'});
-  advanceQueue();
-  renderLeft();
-}
-
 // Manual bulk trigger — builds a visible, editable queue instead of firing
-// blindly. Every eligible lead you selected goes into the queue — no
-// response-rate sampling here, that's reserved for the hosted auto-reply
-// background trickle. What you check is exactly what runs, and it's all
-// visible and editable (reorder / remove, even mid-flight) below.
+// blindly. Every eligible lead you selected goes into the queue, no sampling,
+// nothing left out. This is the only thing that ever generates a reply —
+// what you check is exactly what runs, fully visible and editable (reorder /
+// remove, even mid-flight) below.
 function startBulkQueue(){
   const queuedIds = new Set(bulkQueue.map(q=>q.id));
   const fullSelection = leads.filter(l=>selectedIds.has(l.id));
@@ -942,7 +878,7 @@ window.addEventListener('storage', (e)=>{ if(e.key===DB_KEY) refresh(); });
 
 // Light periodic re-render (no reload from storage) so "paused until" badges
 // flip back to normal on their own once real time catches up, even if
-// hosted auto-reply is off and nobody's clicking around.
+// nobody's clicking around.
 setInterval(()=>{ renderLeft(); if(activeLeadId) renderRight(); }, 20000);
 
 refresh();
