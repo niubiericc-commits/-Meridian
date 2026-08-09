@@ -42,6 +42,17 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
+    if (request.method === "GET") {
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          provider: "groq",
+          note: "This is the Groq edition of worker.js. If you're seeing this in your browser, this worker IS running the new code. Compare this URL to the API_ENDPOINT in your index.html / admin.html — they must match exactly.",
+        }, null, 2),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (request.method !== "POST") {
       return new Response("Method not allowed", { status: 405, headers: corsHeaders });
     }
@@ -83,6 +94,7 @@ export default {
         body: JSON.stringify({
           model: GROQ_MODEL,
           max_tokens: incoming.max_tokens || 300,
+          temperature: typeof incoming.temperature === "number" ? incoming.temperature : 1,
           messages: groqMessages,
         }),
       });
