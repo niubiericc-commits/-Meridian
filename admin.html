@@ -226,6 +226,27 @@ const TOPIC_DIRECTIONS = [
 function topicById(id){ return TOPIC_DIRECTIONS.find(x=>x.id===id) || TOPIC_DIRECTIONS[4]; }
 
 const industriesEn = ["Education & training","Beauty & skincare","Personal fitness","Home renovation","Cross-border e-commerce","Kids' English tutoring","Insurance & finance","Auto sales","Local dining","Career coaching"];
+const speechStylesFallback = [
+  "keeps replies very short and clipped, rarely more than a few words",
+  "writes in complete, slightly formal sentences with proper punctuation",
+  "casual texter — lowercase, minimal punctuation, the occasional 'lol' or 'haha'",
+  "asks a lot of follow-up questions instead of just answering",
+  "a bit scattered — sometimes trails off or changes subject mid-reply",
+  "very polite and a little wordy, tends to over-explain",
+  "blunt and to the point, doesn't soften things much",
+  "friendly and chatty, adds small personal asides",
+  "skeptical phrasing — hedges with 'I guess' / 'maybe' / 'not sure but'",
+  "enthusiastic, uses exclamation points and upbeat language"
+];
+// Older leads saved before speechStyle existed won't have one — assign a
+// stable one deterministically from the lead id so it doesn't change on
+// every render, instead of falling back to the same generic voice for all.
+function getSpeechStyle(l){
+  if(l.speechStyle) return l.speechStyle;
+  let hash = 0;
+  for(let i=0;i<l.id.length;i++) hash = (hash*31 + l.id.charCodeAt(i)) >>> 0;
+  return speechStylesFallback[hash % speechStylesFallback.length];
+}
 
 const DB_KEY = "meridian_leads_db_v1";
 function loadDB(){
@@ -253,8 +274,15 @@ let responseRatePct = 30; // % of bulk-selected leads that actually get a simula
 let autoPilotEnabled = false; // hosted auto-reply — background pacing, no manual clicks needed
 let autoPilotTimer = null;
 
+// Manual bulk queue — visible, editable list of leads picked to reply this
+// round. Separate from selectedIds, which is only used to build a new queue;
+// once a queue is running, changing checkboxes elsewhere never touches it.
+let bulkQueue = []; // [{ id, status: 'waiting' | 'active' | 'done' }]
+let abortControllers = {}; // leadId -> AbortController, for in-flight generations only
+
 function resetAllConversations(){
   if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
+  clearQueue();
   leads.forEach(l=>{
     l.messages = [];
     l.status = "new";
@@ -380,10 +408,38 @@ function renderLeft(){
       <span class="toolbar-label">Simulated response rate</span>
       <input type="number" id="responseRateInput" value="${responseRatePct}" min="1" max="100" style="width:64px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:12.5px; font-family:var(--font-sans);"> <span class="toolbar-label">%</span>
       <div class="sep"></div>
-      <button class="btn btn-primary" id="bulkReplyBtn" ${(selCount===0 || atCapacity())?"disabled":""}>Generate AI replies for ${selCount} selected (manual, one-off)</button>
-      <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `Generating — ${activeGenerations} in flight...` : ""}</span>
+      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Add ${selCount} selected to queue</button>
+      <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
     </div>
-    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">The response rate applies to both the hosted auto-reply above and the manual bulk button — real SMS/outreach campaigns don't get a reply from everyone. Typical two-way conversational reply rates run roughly 2–15% for cold contacts.</div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">The response rate applies to both the hosted auto-reply above and the queue — real SMS/outreach campaigns don't get a reply from everyone. Typical two-way conversational reply rates run roughly 2–15% for cold contacts.</div>
+
+    ${bulkQueue.length>0 ? `
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+        <div style="font-size:13px; font-weight:600;">Reply queue (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done)</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-mini" id="clearFinishedBtn">Clear finished</button>
+          <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
+        </div>
+      </div>
+      <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+        ${bulkQueue.map((q, qi) => {
+          const ql = leads.find(x=>x.id===q.id);
+          if(!ql) return "";
+          const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : "done";
+          const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : "var(--green)";
+          return `
+          <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--border-soft); border-radius:8px;">
+            <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
+            <div style="flex:1; font-size:12.5px;">${ql.name}</div>
+            <div style="font-size:11px; color:${statusColor}; min-width:70px;">${statusText}</div>
+            ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
+            ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+    ` : ""}
 
     ${pool.length===0 ? `
       <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
@@ -431,7 +487,15 @@ function renderLeft(){
   document.getElementById('topicFilterSel').addEventListener('change', (e)=>{ topicFilter = e.target.value; renderLeft(); });
   document.getElementById('selectAllBtn').addEventListener('click', ()=>{ pool.forEach(l=>selectedIds.add(l.id)); renderLeft(); });
   document.getElementById('clearSelBtn').addEventListener('click', ()=>{ selectedIds.clear(); renderLeft(); });
-  document.getElementById('bulkReplyBtn').addEventListener('click', runBulkReplies);
+  document.getElementById('bulkReplyBtn').addEventListener('click', startBulkQueue);
+  document.getElementById('clearFinishedBtn')?.addEventListener('click', clearFinishedQueueItems);
+  document.getElementById('cancelQueueBtn')?.addEventListener('click', clearQueue);
+  document.querySelectorAll('[data-bump]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>bumpQueueItem(e.target.getAttribute('data-bump')));
+  });
+  document.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>removeQueueItem(e.target.getAttribute('data-remove')));
+  });
   document.getElementById('responseRateInput')?.addEventListener('change', (e)=>{
     responseRatePct = Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 30));
   });
@@ -500,7 +564,7 @@ function renderRight(){
         <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) ? "" : "disabled"}>Generate AI reply${isPaused(l) ? " (override pause)" : ""}</button>
         <span class="toolbar-label" id="threadReplyStatus"></span>
         <div class="typing-hint">
-          Paced to feel human — can take anywhere from a few seconds to under a minute. This lead always replies right away when you trigger it here, even if bulk or hosted auto-reply is busy elsewhere.
+          Priority lane — under a few seconds, not the long bulk delay. Always fires right away, even if bulk or hosted auto-reply is busy elsewhere; if this lead is sitting in the queue below, it's pulled out first so it isn't answered twice.
           ${isPaused(l) ? `<br><span style="color:#e3a86a;">This lead said they'd be away until ${formatClock(l.pausedUntil)} — clicking generates a reply anyway.</span>` : ""}
         </div>
       </div>
@@ -545,12 +609,17 @@ function renderRight(){
   });
 
   document.getElementById('threadReplyBtn')?.addEventListener('click', async ()=>{
+    // If this lead is also sitting in the bulk queue (waiting or already being
+    // generated there), pull it out first so it isn't answered twice — this
+    // manual click takes over and handles it right now instead.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
+
     renderLeft();
     const btn = document.getElementById('threadReplyBtn');
     const status = document.getElementById('threadReplyStatus');
     if(btn) btn.disabled = true;
     if(status) status.textContent = "Typing...";
-    await generateReply(l.id, true);
+    await generateReply(l.id, true, undefined, true); // priority = fast, live-chat pacing
     renderLeft();
     renderRight();
   });
@@ -559,13 +628,27 @@ function renderRight(){
 /* =========================================================
    AI reply generation (manual trigger only, batched from admin)
    ========================================================= */
-function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
+function wait(ms, signal){
+  return new Promise((resolve, reject)=>{
+    const t = setTimeout(resolve, ms);
+    if(signal){
+      if(signal.aborted){ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); return; }
+      signal.addEventListener('abort', ()=>{ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); }, {once:true});
+    }
+  });
+}
 
 // Simulated human response pacing — never instant. In "realistic" mode it
 // varies a lot between leads (some reply fast, some take a while). In "bulk"
 // mode it's short and tight so hundreds of leads don't take forever, while
 // still not landing at the exact same millisecond as sibling replies.
-function humanReplyDelay(text){
+function humanReplyDelay(text, priority){
+  if(priority){
+    // You're actively watching this thread — still not instant, but snappy.
+    const thinking = 600 + Math.random()*1800; // 0.6s - 2.4s
+    const typing = Math.min((text.length || 20) * 15, 1500);
+    return Math.round(thinking + typing);
+  }
   if(speedMode === "bulk"){
     const thinking = 400 + Math.random()*1600; // 0.4s - 2s
     const typing = Math.min((text.length || 20) * 8, 1200);
@@ -595,7 +678,7 @@ function showTypingIndicator(leadName){
   return typingDiv;
 }
 
-async function generateReply(id, showTyping){
+async function generateReply(id, showTyping, signal, priority){
   const l = leads.find(x=>x.id===id);
   if(!l) return;
 
@@ -618,7 +701,9 @@ async function generateReply(id, showTyping){
     : "";
 
   const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
-Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}.
+Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}. Speech style: ${getSpeechStyle(l)}.
+
+Write in this specific person's voice, not a generic "helpful customer" template. Let the speech style above genuinely shape word choice, sentence length, and punctuation. Avoid stock customer-service-sounding phrases like "Sounds good!", "Thanks for reaching out", "I appreciate that", "That makes sense" — real texters rarely talk like that. Vary your sentence structure between replies instead of settling into a pattern.
 
 Above all, react naturally and proportionally to what the salesperson's most recent message actually says. Match its length, tone, and topic:
 - If it's just a greeting ("hi", "hello there") or something short and generic, reply with an equally short, casual greeting of your own. Do NOT bring up pricing, products, objections, or any business topic unprompted.
@@ -627,7 +712,7 @@ Above all, react naturally and proportionally to what the salesperson's most rec
 
 Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}${wrapUpLine}
 
-Reply ONLY in ${languageName}, in 1-2 casual, natural sentences matching the persona above and proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
+Reply ONLY in ${languageName}, in 1-2 sentences matching the persona and speech style above, proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
 After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy). A single greeting exchange should score low (near 0) — only raise the score once real interest or business discussion actually happens.`;
 
   let typingDiv = (showTyping && activeLeadId===id) ? showTypingIndicator(l.name) : null;
@@ -636,9 +721,11 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     const response = await fetch(API_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal,
       body: JSON.stringify({
         model: "claude-sonnet-5",
         max_tokens: 300,
+        temperature: 1.05,
         system: systemPrompt,
         messages: [ { role: "user", content: `Recent conversation:\n${history}\n\nWrite the customer's next reply, then the JSON score line.` } ]
       })
@@ -668,7 +755,7 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     // Pace the reply like a real person — wait before it actually lands, keep the
     // typing indicator up (or start one now if this lead just became active).
     if(!typingDiv && activeLeadId===id) typingDiv = showTypingIndicator(l.name);
-    await wait(humanReplyDelay(replyText));
+    await wait(humanReplyDelay(replyText, priority), signal);
 
     if(typingDiv && typingDiv.parentNode) typingDiv.remove();
     const d = new Date();
@@ -686,8 +773,13 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     }
   }catch(err){
     if(typingDiv && typingDiv.parentNode) typingDiv.remove();
-    const d = new Date();
-    l.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+    if(err && err.name === 'AbortError'){
+      // Deliberately cancelled from the queue — say nothing, leave the
+      // conversation exactly as it was before this attempt.
+    } else {
+      const d = new Date();
+      l.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+    }
   }
   saveDB();
 
@@ -738,51 +830,98 @@ function autoPilotTick(){
   renderLeft();
 }
 
-// Manual bulk trigger — only a randomly-sampled share of the selection
-// actually "replies" (per the response rate), mirroring how real outreach
-// campaigns never get a response from every contact. Runs sequentially in
-// "realistic" mode, or with up to BULK_CONCURRENCY in flight at once in
-// "bulk" mode.
-async function runBulkReplies(){
-  if(atCapacity()) return;
+// Manual bulk trigger — builds a visible, editable queue instead of firing
+// blindly. Only a randomly-sampled share of the selection is queued at all
+// (per the response rate), mirroring how real campaigns never get a reply
+// from everyone. The queue processes with up to concurrencyCap() leads in
+// flight at once, and can be edited (reordered / items removed, even
+// mid-flight) while it runs.
+function startBulkQueue(){
   const fullSelection = leads.filter(l=>selectedIds.has(l.id));
   const pausedCount = fullSelection.filter(isPaused).length;
-  const fullPool = fullSelection.filter(l=>!isPaused(l));
-  if(fullPool.length===0) return;
+  const eligible = fullSelection.filter(l=>!isPaused(l));
+  if(eligible.length===0) return;
 
   const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
-  const shuffled = [...fullPool].sort(()=>Math.random()-0.5);
-  const responderCount = Math.max(1, Math.round(fullPool.length * rate));
-  const pool = shuffled.slice(0, responderCount);
-  const skipped = fullPool.length - pool.length;
+  const shuffled = [...eligible].sort(()=>Math.random()-0.5);
+  const responderCount = Math.max(1, Math.round(eligible.length * rate));
+  const chosen = shuffled.slice(0, responderCount);
+  const notChosen = eligible.length - chosen.length;
 
-  const btn = document.getElementById('bulkReplyBtn');
-  const progress = document.getElementById('bulkProgress');
-  if(btn) btn.disabled = true;
-
-  let done = 0;
-  let idx = 0;
-  const workerCount = Math.max(1, Math.min(concurrencyCap(), pool.length));
-
-  async function worker(){
-    while(idx < pool.length){
-      const l = pool[idx++];
-      if(progress) progress.textContent = `${done}/${pool.length} done, ${activeGenerations} in flight...`;
-      await generateReply(l.id, true);
-      done++;
-      renderLeft();
-      if(activeLeadId === l.id) renderRight();
-      if(progress) progress.textContent = `${done}/${pool.length} done...`;
-    }
-  }
-
-  const workers = [];
-  for(let i=0;i<workerCount;i++) workers.push(worker());
-  await Promise.all(workers);
-
-  const pausedNote = pausedCount>0 ? `, ${pausedCount} were paused (skipped)` : "";
-  showToast(`${done} of ${fullPool.length} eligible leads replied (${skipped} stayed silent — ${responseRatePct}% simulated response rate${pausedNote})`);
+  bulkQueue = bulkQueue.concat(chosen.map(l=>({id: l.id, status: 'waiting'})));
   selectedIds.clear();
+
+  const pausedNote = pausedCount>0 ? `, ${pausedCount} selected leads are paused and were left out` : "";
+  showToast(`Queued ${chosen.length} of ${fullSelection.length} selected (${notChosen} not picked this round — ${responseRatePct}% simulated response rate${pausedNote})`);
+
+  advanceQueue();
+  renderLeft();
+}
+
+// Launches as many 'waiting' queue items as the current concurrency cap
+// allows. Called whenever a slot frees up (a generation finishes) so the
+// queue keeps draining on its own.
+function advanceQueue(){
+  let slots = concurrencyCap() - activeGenerations;
+  if(slots <= 0) return;
+  for(const item of bulkQueue){
+    if(slots <= 0) break;
+    if(item.status !== 'waiting') continue;
+    item.status = 'active';
+    slots--;
+    const controller = new AbortController();
+    abortControllers[item.id] = controller;
+    generateReply(item.id, true, controller.signal).then(()=>{
+      delete abortControllers[item.id];
+      item.status = 'done';
+      renderLeft();
+      if(activeLeadId === item.id) renderRight();
+      advanceQueue();
+    });
+  }
+  renderLeft();
+}
+
+// Move a still-waiting item to the very front of the queue — "cuts in line"
+// ahead of everything else still waiting.
+function bumpQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id && q.status==='waiting');
+  if(idx <= 0) return;
+  const [item] = bulkQueue.splice(idx,1);
+  bulkQueue.unshift(item);
+  renderLeft();
+}
+
+// Remove one item from the queue. If it hasn't started yet it's simply
+// dropped (never replies). If it's already in flight, its request is
+// aborted so it stops without leaving an error message behind.
+function removeQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id);
+  if(idx===-1) return;
+  const item = bulkQueue[idx];
+  if(item.status==='active'){
+    const c = abortControllers[id];
+    if(c) c.abort();
+  }
+  bulkQueue.splice(idx,1);
+  renderLeft();
+}
+
+// Stops everything still waiting and aborts anything in flight.
+function clearQueue(){
+  bulkQueue.forEach(item=>{
+    if(item.status==='active'){
+      const c = abortControllers[item.id];
+      if(c) c.abort();
+    }
+  });
+  bulkQueue = [];
+  renderLeft();
+}
+
+// Drop finished entries out of the visible list, keep waiting/active ones.
+function clearFinishedQueueItems(){
+  bulkQueue = bulkQueue.filter(q=>q.status!=='done');
   renderLeft();
 }
 
