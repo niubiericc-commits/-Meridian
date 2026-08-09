@@ -145,6 +145,7 @@
   .status-qualified{ color: var(--green); background: var(--green-dim); }
   .status-disqualified{ color: var(--red); background: var(--red-dim); }
   .status-awaiting{ color:#e3a86a; background: rgba(227,168,106,0.08); }
+  .status-paused{ color:#8fa3b8; background: rgba(143,163,184,0.1); }
   .topic-pill{ font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid #3a2a5a; color:#c99bff; background: rgba(201,155,255,0.06); white-space:nowrap; }
   .score-row{ display:flex; align-items:center; gap:6px; }
   .score-bar-wrap{ width:50px; height:5px; border-radius:4px; background: var(--gray-dim); overflow:hidden; }
@@ -243,7 +244,11 @@ let activeLeadId = null;
 let selectedIds = new Set();
 let topicFilter = "all";
 let statusFilter = "awaiting"; // awaiting = has an unanswered outbound message
-let generationBusy = false; // global lock — only one lead replies at a time, never in parallel
+let activeGenerations = 0; // how many generateReply() calls are in flight right now
+let speedMode = "realistic"; // "realistic" (sequential, human-paced) | "bulk" (parallel, faster)
+const BULK_CONCURRENCY = 8;
+function concurrencyCap(){ return speedMode === "bulk" ? BULK_CONCURRENCY : 1; }
+function atCapacity(){ return activeGenerations >= concurrencyCap(); }
 let responseRatePct = 30; // % of bulk-selected leads that actually get a simulated reply this round
 let autoPilotEnabled = false; // hosted auto-reply — background pacing, no manual clicks needed
 let autoPilotTimer = null;
@@ -256,6 +261,9 @@ function resetAllConversations(){
     l.score = 0;
     l.manualOverride = false;
     l.unread = false;
+    l.pausedUntil = null;
+    l.lastPauseMessageCount = 0;
+    l.pauseThreshold = 9 + Math.floor(Math.random()*5);
   });
   saveDB();
   activeLeadId = null;
@@ -284,6 +292,13 @@ function showToast(msg){
 function needsReply(lead){
   const last = lead.messages[lead.messages.length-1];
   return !!last && last.dir === 'out';
+}
+function isPaused(lead){
+  return !!lead.pausedUntil && Date.now() < lead.pausedUntil;
+}
+function formatClock(ts){
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0');
 }
 
 /* =========================================================
@@ -352,12 +367,21 @@ function renderLeft(){
       <span class="toolbar-label">${selCount} selected</span>
     </div>
 
+    <div class="toolbar" style="margin-bottom:10px;">
+      <span class="toolbar-label">Speed mode</span>
+      <select id="speedModeSel">
+        <option value="realistic" ${speedMode==="realistic"?"selected":""}>Realistic — sequential, human-paced (slow)</option>
+        <option value="bulk" ${speedMode==="bulk"?"selected":""}>Bulk — up to ${BULK_CONCURRENCY} in parallel (fast, less lifelike)</option>
+      </select>
+      ${speedMode==="bulk" ? `<span class="toolbar-label" style="color:#e3a86a;">Multiple leads will reply at the same time in this mode.</span>` : ""}
+    </div>
+
     <div class="toolbar" style="margin-bottom:18px;">
       <span class="toolbar-label">Simulated response rate</span>
       <input type="number" id="responseRateInput" value="${responseRatePct}" min="1" max="100" style="width:64px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:6px; font-size:12.5px; font-family:var(--font-sans);"> <span class="toolbar-label">%</span>
       <div class="sep"></div>
-      <button class="btn btn-primary" id="bulkReplyBtn" ${(selCount===0 || generationBusy)?"disabled":""}>Generate AI replies for ${selCount} selected (manual, one-off)</button>
-      <span class="toolbar-label" id="bulkProgress">${generationBusy ? "Generating — please wait, one lead at a time..." : ""}</span>
+      <button class="btn btn-primary" id="bulkReplyBtn" ${(selCount===0 || atCapacity())?"disabled":""}>Generate AI replies for ${selCount} selected (manual, one-off)</button>
+      <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `Generating — ${activeGenerations} in flight...` : ""}</span>
     </div>
     <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">The response rate applies to both the hosted auto-reply above and the manual bulk button — real SMS/outreach campaigns don't get a reply from everyone. Typical two-way conversational reply rates run roughly 2–15% for cold contacts.</div>
 
@@ -389,7 +413,7 @@ function renderLeft(){
                   <span class="dir-tag">${last ? (last.dir==='out'?'SENT ':'REPLY ') : ''}</span>${last?escapeHtml(last.text):''}
                 </div>
               </td>
-              <td>${awaitingReply ? '<span class="status-badge status-awaiting">Awaiting reply</span>' : `<span class="status-badge status-${l.status}">${l.status}</span>`}</td>
+              <td>${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : (awaitingReply ? '<span class="status-badge status-awaiting">Awaiting reply</span>' : `<span class="status-badge status-${l.status}">${l.status}</span>`)}</td>
               <td>
                 <div class="score-row">
                   <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${l.score}%; background:${scoreColor(l.score)};"></div></div>
@@ -413,6 +437,10 @@ function renderLeft(){
   });
   document.getElementById('autoPilotToggle')?.addEventListener('change', (e)=>{
     setAutoPilot(e.target.checked);
+  });
+  document.getElementById('speedModeSel')?.addEventListener('change', (e)=>{
+    speedMode = e.target.value;
+    renderLeft();
   });
   document.querySelectorAll('.row-cb').forEach(cb=>{
     cb.addEventListener('click', (e)=>e.stopPropagation());
@@ -449,6 +477,7 @@ function renderRight(){
       <div class="thread-meta-row">
         <span class="topic-pill">${topicById(l.topic).en}</span>
         <span class="status-badge status-${l.status}">${l.status}</span>
+        ${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : ""}
       </div>
     </div>
     <div class="thread-messages" id="threadMessages"></div>
@@ -468,9 +497,12 @@ function renderRight(){
 
       <div style="margin-top:10px;">
         <div class="field-label" style="margin:0 0 6px;">Option A — AI replies, following the direction above</div>
-        <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) && !generationBusy ? "" : "disabled"}>Generate AI reply</button>
+        <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) ? "" : "disabled"}>Generate AI reply${isPaused(l) ? " (override pause)" : ""}</button>
         <span class="toolbar-label" id="threadReplyStatus"></span>
-        <div class="typing-hint">Paced to feel human — can take anywhere from a few seconds to under a minute.</div>
+        <div class="typing-hint">
+          Paced to feel human — can take anywhere from a few seconds to under a minute. This lead always replies right away when you trigger it here, even if bulk or hosted auto-reply is busy elsewhere.
+          ${isPaused(l) ? `<br><span style="color:#e3a86a;">This lead said they'd be away until ${formatClock(l.pausedUntil)} — clicking generates a reply anyway.</span>` : ""}
+        </div>
       </div>
 
       <div style="margin-top:16px;">
@@ -513,15 +545,12 @@ function renderRight(){
   });
 
   document.getElementById('threadReplyBtn')?.addEventListener('click', async ()=>{
-    if(generationBusy) return;
-    generationBusy = true;
     renderLeft();
     const btn = document.getElementById('threadReplyBtn');
     const status = document.getElementById('threadReplyStatus');
     if(btn) btn.disabled = true;
     if(status) status.textContent = "Typing...";
     await generateReply(l.id, true);
-    generationBusy = false;
     renderLeft();
     renderRight();
   });
@@ -532,9 +561,16 @@ function renderRight(){
    ========================================================= */
 function wait(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
-// Simulated human response pacing — never instant, and varies a lot between
-// leads (some reply fast, some take a while), not a uniform cadence.
+// Simulated human response pacing — never instant. In "realistic" mode it
+// varies a lot between leads (some reply fast, some take a while). In "bulk"
+// mode it's short and tight so hundreds of leads don't take forever, while
+// still not landing at the exact same millisecond as sibling replies.
 function humanReplyDelay(text){
+  if(speedMode === "bulk"){
+    const thinking = 400 + Math.random()*1600; // 0.4s - 2s
+    const typing = Math.min((text.length || 20) * 8, 1200);
+    return Math.round(thinking + typing);
+  }
   const roll = Math.random();
   let thinking;
   if(roll < 0.45){
@@ -563,10 +599,24 @@ async function generateReply(id, showTyping){
   const l = leads.find(x=>x.id===id);
   if(!l) return;
 
+  activeGenerations++;
+  try{
+
   const history = l.messages.slice(-8).map(m => (m.dir==='out' ? "Sales: " : "Customer: ") + m.text).join("\n");
   const languageName = l.lang === 'fr' ? "French" : "English";
   const topic = topicById(l.topic);
   const customLine = l.customDirection ? `\nAdditional guidance from the operator: ${l.customDirection}` : "";
+
+  // After enough back-and-forth, real people don't stay glued to a text thread —
+  // have this reply be a natural excuse to step away, then pause the lead for a
+  // couple of real-world hours before it's eligible to reply again.
+  const messagesSincePause = l.messages.length - (l.lastPauseMessageCount || 0);
+  const shouldWrapUp = messagesSincePause >= (l.pauseThreshold || 10);
+
+  const wrapUpLine = shouldWrapUp
+    ? `\nThis is also the moment to naturally end this conversation for now — after your reply, before anything else feels resolved. Give a brief, casual, in-character excuse for needing to step away (busy with work, heading into something, will check back later — whatever fits the persona). Do NOT mention a specific time or promise an exact return. Keep it to one short sentence, same as any other reply.`
+    : "";
+
   const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
 Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}.
 
@@ -575,7 +625,7 @@ Above all, react naturally and proportionally to what the salesperson's most rec
 - If it asks a direct question, answer that specific question.
 - Never jump ahead to a topic the salesperson hasn't actually raised yet.
 
-Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}
+Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}${wrapUpLine}
 
 Reply ONLY in ${languageName}, in 1-2 casual, natural sentences matching the persona above and proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
 After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy). A single greeting exchange should score low (near 0) — only raise the score once real interest or business discussion actually happens.`;
@@ -627,24 +677,36 @@ After the reply, on a new line, output strict JSON only in this exact format: {"
     if(!l.manualOverride){
       l.status = score >= 70 ? "qualified" : "in_progress";
     }
+
+    if(shouldWrapUp){
+      const pauseHours = 2 + Math.random(); // 2-3 real hours
+      l.pausedUntil = Date.now() + pauseHours * 3600 * 1000;
+      l.lastPauseMessageCount = l.messages.length;
+      l.pauseThreshold = 9 + Math.floor(Math.random()*5); // 9-13 for the next stretch
+    }
   }catch(err){
     if(typingDiv && typingDiv.parentNode) typingDiv.remove();
     const d = new Date();
     l.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
   }
   saveDB();
+
+  } finally {
+    activeGenerations--;
+  }
 }
+
 
 // Hosted auto-reply — runs in the background while this tab stays open.
 // Every few seconds it looks at leads awaiting a reply and, respecting the
-// response-rate setting, may generate one via generateReply() — which already
-// applies a randomized human-like delay before the message actually lands.
-// Only ever one lead at a time (shares the same generationBusy lock as the
-// manual buttons), so nothing ever fires in parallel.
+// response-rate setting, may generate replies via generateReply() — which
+// already applies a randomized human-like delay before each message lands.
+// In "realistic" mode this stays to one lead at a time; in "bulk" mode it can
+// launch several concurrently, up to the current concurrency cap.
 function setAutoPilot(enabled){
   autoPilotEnabled = enabled;
   if(enabled && !autoPilotTimer){
-    autoPilotTimer = setInterval(autoPilotTick, 5000);
+    autoPilotTimer = setInterval(autoPilotTick, 3000);
     autoPilotTick(); // check immediately instead of waiting for the first interval
   } else if(!enabled && autoPilotTimer){
     clearInterval(autoPilotTimer);
@@ -653,31 +715,39 @@ function setAutoPilot(enabled){
   renderLeft();
 }
 
-async function autoPilotTick(){
-  if(!autoPilotEnabled || generationBusy) return;
-  const awaiting = leads.filter(needsReply);
+function autoPilotTick(){
+  if(!autoPilotEnabled) return;
+  const awaiting = leads.filter(l=>needsReply(l) && !isPaused(l));
   if(awaiting.length===0) return;
 
-  // Pick one candidate lead per tick and roll against the response rate —
-  // spreads replies out over real time instead of bursting them all at once.
-  const candidate = awaiting[Math.floor(Math.random()*awaiting.length)];
   const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
-  if(Math.random() > rate) return; // this lead stays silent for now, matches real campaigns
+  let slots = concurrencyCap() - activeGenerations;
+  if(slots <= 0) return;
 
-  generationBusy = true;
+  // Shuffle so repeated ticks don't always favor the same leads first.
+  const shuffled = [...awaiting].sort(()=>Math.random()-0.5);
+  for(const l of shuffled){
+    if(slots <= 0) break;
+    if(Math.random() > rate) continue; // this lead stays silent for now, matches real campaigns
+    slots--;
+    generateReply(l.id, true).then(()=>{
+      renderLeft();
+      if(activeLeadId === l.id) renderRight();
+    });
+  }
   renderLeft();
-  await generateReply(candidate.id, true);
-  generationBusy = false;
-  renderLeft();
-  if(activeLeadId === candidate.id) renderRight();
 }
 
-
-// Bulk replies run strictly one at a time — never in parallel — and only a
-// randomly-sampled share of the selection actually "replies", mirroring how
-// real outreach campaigns never get a response from every contact.
+// Manual bulk trigger — only a randomly-sampled share of the selection
+// actually "replies" (per the response rate), mirroring how real outreach
+// campaigns never get a response from every contact. Runs sequentially in
+// "realistic" mode, or with up to BULK_CONCURRENCY in flight at once in
+// "bulk" mode.
 async function runBulkReplies(){
-  if(generationBusy) return;
+  if(atCapacity()) return;
+  const fullSelection = leads.filter(l=>selectedIds.has(l.id));
+  const pausedCount = fullSelection.filter(isPaused).length;
+  const fullPool = fullSelection.filter(l=>!isPaused(l));
   if(fullPool.length===0) return;
 
   const rate = Math.max(1, Math.min(100, responseRatePct)) / 100;
@@ -686,20 +756,32 @@ async function runBulkReplies(){
   const pool = shuffled.slice(0, responderCount);
   const skipped = fullPool.length - pool.length;
 
-  generationBusy = true;
   const btn = document.getElementById('bulkReplyBtn');
   const progress = document.getElementById('bulkProgress');
   if(btn) btn.disabled = true;
+
   let done = 0;
-  for(const l of pool){
-    if(progress) progress.textContent = `${done+1} / ${pool.length} — ${l.name}...`;
-    await generateReply(l.id, true);
-    done++;
-    renderLeft();
-    if(activeLeadId === l.id) renderRight();
+  let idx = 0;
+  const workerCount = Math.max(1, Math.min(concurrencyCap(), pool.length));
+
+  async function worker(){
+    while(idx < pool.length){
+      const l = pool[idx++];
+      if(progress) progress.textContent = `${done}/${pool.length} done, ${activeGenerations} in flight...`;
+      await generateReply(l.id, true);
+      done++;
+      renderLeft();
+      if(activeLeadId === l.id) renderRight();
+      if(progress) progress.textContent = `${done}/${pool.length} done...`;
+    }
   }
-  generationBusy = false;
-  showToast(`${done} of ${fullPool.length} selected leads replied (${skipped} stayed silent — ${responseRatePct}% simulated response rate)`);
+
+  const workers = [];
+  for(let i=0;i<workerCount;i++) workers.push(worker());
+  await Promise.all(workers);
+
+  const pausedNote = pausedCount>0 ? `, ${pausedCount} were paused (skipped)` : "";
+  showToast(`${done} of ${fullPool.length} eligible leads replied (${skipped} stayed silent — ${responseRatePct}% simulated response rate${pausedNote})`);
   selectedIds.clear();
   renderLeft();
 }
@@ -717,6 +799,11 @@ function refresh(){
 document.getElementById('refreshBtn').addEventListener('click', refresh);
 document.getElementById('resetAllBtn').addEventListener('click', resetAllConversations);
 window.addEventListener('storage', (e)=>{ if(e.key===DB_KEY) refresh(); });
+
+// Light periodic re-render (no reload from storage) so "paused until" badges
+// flip back to normal on their own once real time catches up, even if
+// hosted auto-reply is off and nobody's clicking around.
+setInterval(()=>{ renderLeft(); if(activeLeadId) renderRight(); }, 20000);
 
 refresh();
 </script>
