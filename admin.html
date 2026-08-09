@@ -274,10 +274,15 @@ function atCapacity(){ return activeGenerations >= concurrencyCap(); }
 // Manual bulk queue — visible, editable list of leads picked to reply this
 // round. Separate from selectedIds, which is only used to build a new queue;
 // once a queue is running, changing checkboxes elsewhere never touches it.
-// This is the ONLY thing that ever generates a reply — nothing runs on its
-// own in the background.
 let bulkQueue = []; // [{ id, status: 'waiting' | 'active' | 'done' }]
 let abortControllers = {}; // leadId -> AbortController, for in-flight generations only
+
+// Hosted auto-reply — scoped ONLY to leads you've explicitly added to the
+// hosted list (l.hosted === true). While on, it keeps those conversations
+// going on their own (new replies feed back in automatically as the lead
+// gets messaged again) — it never touches any lead outside that list.
+let hostedEnabled = false;
+let hostedTimer = null;
 
 function resetAllConversations(){
   if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
@@ -337,9 +342,11 @@ function renderLeft(){
   const contacted = leads.filter(l=>l.status!=="new").length;
   const awaiting = leads.filter(needsReply).length;
   const qualified = leads.filter(l=>l.status==="qualified").length;
+  const hostedCount = leads.filter(l=>l.hosted).length;
 
   let pool = leads.filter(l=>l.status!=="new");
   if(statusFilter==="awaiting") pool = pool.filter(needsReply);
+  else if(statusFilter==="hosted") pool = pool.filter(l=>l.hosted);
   else if(statusFilter!=="all") pool = pool.filter(l=>l.status===statusFilter);
   if(topicFilter!=="all") pool = pool.filter(l=>l.topic===topicFilter);
   pool = pool.slice().sort((a,b)=>{
@@ -349,6 +356,8 @@ function renderLeft(){
   });
 
   const selCount = [...selectedIds].filter(id=>pool.some(l=>l.id===id)).length;
+  const selHostedCount = [...selectedIds].filter(id=>{ const l = leads.find(x=>x.id===id); return l && l.hosted; }).length;
+  const selNotHostedCount = selCount - selHostedCount;
 
   wrap.innerHTML = `
     <div class="section-title">Message monitor</div>
@@ -361,10 +370,32 @@ function renderLeft(){
       <div class="stat-card"><div class="num" style="color:var(--green)">${qualified}</div><div class="lbl">Qualified</div></div>
     </div>
 
+    <div class="card" style="margin-bottom:18px; ${hostedEnabled ? 'border-color:#3a3fb0;' : ''}">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">Hosted auto-reply — ${hostedCount} lead${hostedCount===1?"":"s"} in the list</div>
+          <div class="toolbar-label" style="margin-top:2px;">
+            Only ever touches leads you've explicitly added to this list — never anyone else. While on, it keeps their conversations going automatically (checks every few seconds); replies still land in the queue below, paced the same as everything else.
+          </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer;">
+          <span class="toolbar-label">${hostedEnabled ? "Running" : "Off"}</span>
+          <input type="checkbox" id="hostedToggle" ${hostedEnabled?"checked":""} style="width:34px; height:18px;">
+        </label>
+      </div>
+      ${selCount>0 ? `
+      <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
+        <button class="btn-mini" id="addHostedBtn" ${selNotHostedCount===0?"disabled":""}>Add ${selNotHostedCount} selected to hosted list</button>
+        <button class="btn-mini" id="removeHostedBtn" style="color:var(--red);" ${selHostedCount===0?"disabled":""}>Remove ${selHostedCount} selected from list</button>
+      </div>
+      ` : ""}
+    </div>
+
     <div class="toolbar">
       <select id="statusFilterSel">
         <option value="awaiting" ${statusFilter==="awaiting"?"selected":""}>Awaiting reply</option>
         <option value="all" ${statusFilter==="all"?"selected":""}>All contacted</option>
+        <option value="hosted" ${statusFilter==="hosted"?"selected":""}>Hosted list only</option>
         <option value="in_progress" ${statusFilter==="in_progress"?"selected":""}>In progress</option>
         <option value="qualified" ${statusFilter==="qualified"?"selected":""}>Qualified</option>
         <option value="disqualified" ${statusFilter==="disqualified"?"selected":""}>Disqualified</option>
@@ -392,7 +423,7 @@ function renderLeft(){
       <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Run — add ${selCount} selected to queue</button>
       <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
     </div>
-    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Nothing generates a reply unless you select leads and click Run, or use the priority button inside a lead's own conversation. Nothing runs on its own in the background.</div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Run fires once for whatever you've selected. For leads you want followed up automatically as the conversation continues, add them to the hosted list above instead.</div>
 
     ${bulkQueue.length>0 ? `
     <div class="card" style="margin-bottom:18px;">
@@ -444,7 +475,7 @@ function renderLeft(){
             return `
             <tr class="row-clickable ${l.id===activeLeadId?'row-selected':''}" data-open="${l.id}">
               <td><input type="checkbox" data-id="${l.id}" class="row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
-              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
+              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}${l.hosted ? ' <span style="color:#8f9dff;" title="In hosted list">●</span>' : ''}</div></td>
               <td><span class="topic-pill">${topicById(l.topic).en}</span></td>
               <td>
                 <div class="msg-preview">
@@ -465,6 +496,15 @@ function renderLeft(){
     `}
   `;
 
+  document.getElementById('hostedToggle')?.addEventListener('change', (e)=>{
+    setHosted(e.target.checked);
+  });
+  document.getElementById('addHostedBtn')?.addEventListener('click', ()=>{
+    addToHosted([...selectedIds]);
+  });
+  document.getElementById('removeHostedBtn')?.addEventListener('click', ()=>{
+    removeFromHosted([...selectedIds]);
+  });
   document.getElementById('statusFilterSel').addEventListener('change', (e)=>{ statusFilter = e.target.value; renderLeft(); });
   document.getElementById('topicFilterSel').addEventListener('change', (e)=>{ topicFilter = e.target.value; renderLeft(); });
   document.getElementById('selectAllBtn').addEventListener('click', ()=>{ pool.forEach(l=>selectedIds.add(l.id)); renderLeft(); });
@@ -518,6 +558,7 @@ function renderRight(){
         <span class="topic-pill">${topicById(l.topic).en}</span>
         <span class="status-badge status-${l.status}">${l.status}</span>
         ${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : ""}
+        <button class="btn-mini" id="toggleHostedBtn" style="${l.hosted?'color:#8f9dff; border-color:#3a3fb0;':''}">${l.hosted ? "In hosted list — remove" : "Add to hosted list"}</button>
       </div>
     </div>
     <div class="thread-messages" id="threadMessages"></div>
@@ -570,6 +611,13 @@ function renderRight(){
     saveDB();
     showToast("Direction saved");
     renderLeft();
+  });
+
+  document.getElementById('toggleHostedBtn').addEventListener('click', ()=>{
+    l.hosted = !l.hosted;
+    saveDB();
+    renderLeft();
+    renderRight();
   });
 
   document.getElementById('manualReplyBtn').addEventListener('click', ()=>{
@@ -816,6 +864,45 @@ function advanceQueue(){
       advanceQueue();
     });
   }
+  renderLeft();
+}
+
+// Toggle hosted mode on/off. Scope is only ever leads with l.hosted === true —
+// nothing outside that list is ever touched, no matter how long this runs.
+function setHosted(enabled){
+  hostedEnabled = enabled;
+  if(enabled && !hostedTimer){
+    hostedTimer = setInterval(hostedTick, 3000);
+    hostedTick();
+  } else if(!enabled && hostedTimer){
+    clearInterval(hostedTimer);
+    hostedTimer = null;
+  }
+  renderLeft();
+}
+
+// Every few seconds, check the hosted list for leads that are waiting on a
+// reply and queue them up (same visible queue as manual Run, same pacing,
+// same everything) — but only ever leads with l.hosted === true.
+function hostedTick(){
+  if(!hostedEnabled) return;
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const candidates = leads.filter(l=> l.hosted && needsReply(l) && !isPaused(l) && !queuedIds.has(l.id));
+  if(candidates.length===0) return;
+  bulkQueue = bulkQueue.concat(candidates.map(l=>({id: l.id, status:'waiting'})));
+  advanceQueue();
+  renderLeft();
+}
+
+// Add / remove leads from the hosted list.
+function addToHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = true; });
+  saveDB();
+  renderLeft();
+}
+function removeFromHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = false; });
+  saveDB();
   renderLeft();
 }
 
