@@ -1052,6 +1052,30 @@ function renderAll(){
 document.getElementById('uiLangEn').addEventListener('click', ()=>{ uiLang='en'; renderAll(); });
 document.getElementById('uiLangZh').addEventListener('click', ()=>{ uiLang='zh'; renderAll(); });
 
+// Keep in sync with the backend page — if admin.html (or another tab) updates
+// the shared database (e.g. generates a reply), reload it here and re-render
+// so the pipeline/qualified views reflect it without a manual page refresh.
+// Skipped while typing in a text field, so in-progress input never gets wiped.
+function isTypingInField(){
+  const el = document.activeElement;
+  return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
+}
+window.addEventListener('storage', (e)=>{
+  if(e.key !== DB_KEY) return;
+  const fresh = loadDB();
+  if(fresh && Array.isArray(fresh)) leads = fresh;
+  if(!isTypingInField()) renderAll();
+});
+// Some browsers don't fire 'storage' reliably across tabs on the same
+// machine — poll as a fallback so updates still show up within a few seconds.
+setInterval(()=>{
+  const fresh = loadDB();
+  if(fresh && Array.isArray(fresh) && JSON.stringify(fresh) !== JSON.stringify(leads)){
+    leads = fresh;
+    if(!isTypingInField()) renderAll();
+  }
+}, 3000);
+
 renderAll();
 </script>
 
