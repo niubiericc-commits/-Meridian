@@ -1,56 +1,138 @@
-/** Meridian simulation API proxy — Cloudflare Worker / Groq */
-const ALLOWED_ORIGINS = new Set([
-  "https://meridian-1-vb7w.onrender.com",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-]);
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const MAX_BODY_BYTES = 64 * 1024;
-const buckets = new Map();
+/**
+ * Meridian API proxy — Cloudflare Worker (Groq edition, free tier)
+ *
+ * Your front end (index.html / admin.html) sends requests shaped like
+ * Anthropic's Messages API: { model, max_tokens, system, messages }.
+ * This worker converts that into Groq's OpenAI-compatible chat completions
+ * format, calls Groq (free, no credit card), and converts the response
+ * back into the { content: [{ type: "text", text }] } shape the front end
+ * already expects — so index.html and admin.html never need to change.
+ *
+ *   Browser  --Anthropic-shaped POST-->  this worker (has the Groq key)
+ *            <--Anthropic-shaped JSON--  converts to/from Groq's format
+ *                                         --> https://api.groq.com
+ *
+ * Setup:
+ *   1. Create a free Groq account: https://console.groq.com
+ *   2. Create an API key: https://console.groq.com/keys
+ *   3. In your Cloudflare Worker: Settings -> Variables and Secrets ->
+ *      Add -> Secret -> name it GROQ_API_KEY -> paste your key -> Deploy
+ *   4. Paste this file's contents into the Worker's Edit Code screen,
+ *      Deploy
+ *   5. index.html / admin.html already point at your worker URL from the
+ *      earlier setup — nothing else to change there
+ *
+ * Optional hardening: set ALLOWED_ORIGIN below to your exact site URL
+ * (e.g. "https://yourname.github.io") instead of "*" once it's working,
+ * so only your own page can call this worker.
+ */
 
-function cors(origin){
-  const allowed = ALLOWED_ORIGINS.has(origin) ? origin : "";
-  return {
-    ...(allowed ? {"Access-Control-Allow-Origin": allowed} : {}),
-    "Vary":"Origin",
-    "Access-Control-Allow-Methods":"POST, OPTIONS",
-    "Access-Control-Allow-Headers":"Content-Type",
-  };
-}
-function json(body,status,headers){ return new Response(JSON.stringify(body),{status,headers:{...headers,"Content-Type":"application/json","Cache-Control":"no-store"}}); }
-function limited(ip){
-  const now=Date.now(), windowMs=60_000, max=30;
-  const b=buckets.get(ip);
-  if(!b || now-b.start>windowMs){ buckets.set(ip,{start:now,count:1}); return false; }
-  b.count++; return b.count>max;
-}
+const ALLOWED_ORIGIN = "*";
+const GROQ_MODEL = "openai/gpt-oss-120b"; // llama-3.3-70b-versatile was deprecated by Groq on 2026-06-17
+
 export default {
   async fetch(request, env) {
-    const origin=request.headers.get("Origin") || "";
-    const headers=cors(origin);
-    if(request.method==="OPTIONS") return ALLOWED_ORIGINS.has(origin) ? new Response(null,{status:204,headers}) : new Response(null,{status:403});
-    if(request.method==="GET") return json({status:"ok",provider:"groq",mode:"simulation"},200,headers);
-    if(request.method!=="POST") return json({error:{message:"Method not allowed"}},405,headers);
-    if(!ALLOWED_ORIGINS.has(origin)) return json({error:{message:"Origin not allowed"}},403,headers);
-    if(limited(request.headers.get("CF-Connecting-IP") || "unknown")) return json({error:{message:"Rate limit exceeded. Try again shortly."}},429,headers);
-    if(!env.GROQ_API_KEY) return json({error:{message:"GROQ_API_KEY secret is not set."}},500,headers);
-    const len=Number(request.headers.get("content-length")||0);
-    if(len>MAX_BODY_BYTES) return json({error:{message:"Request too large"}},413,headers);
-    let incoming;
-    try{ incoming=await request.json(); }catch{ return json({error:{message:"Invalid JSON"}},400,headers); }
-    if(!Array.isArray(incoming.messages) || incoming.messages.length>60) return json({error:{message:"Invalid messages"}},400,headers);
-    const groqMessages=[];
-    if(typeof incoming.system==="string" && incoming.system.length<=12000) groqMessages.push({role:"system",content:incoming.system});
-    for(const m of incoming.messages){
-      if(!m || !["user","assistant"].includes(m.role) || typeof m.content!=="string" || m.content.length>12000) return json({error:{message:"Invalid message"}},400,headers);
-      groqMessages.push({role:m.role,content:m.content});
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    };
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
     }
+
+    if (request.method === "GET") {
+      return new Response(
+        JSON.stringify({
+          status: "ok",
+          provider: "groq",
+          note: "This is the Groq edition of worker.js. If you're seeing this in your browser, this worker IS running the new code. Compare this URL to the API_ENDPOINT in your index.html / admin.html — they must match exactly.",
+        }, null, 2),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (request.method !== "POST") {
+      return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    }
+
+    if (!env.GROQ_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: { message: "GROQ_API_KEY secret is not set on this worker." } }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let incoming;
+    try {
+      incoming = await request.json();
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: { message: "Bad request body (not valid JSON)" } }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Convert Anthropic-shaped request -> Groq (OpenAI-compatible) request
+    const groqMessages = [];
+    if (incoming.system) {
+      groqMessages.push({ role: "system", content: incoming.system });
+    }
+    for (const m of incoming.messages || []) {
+      groqMessages.push({ role: m.role, content: m.content });
+    }
+
     let upstream;
-    try{
-      upstream=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${env.GROQ_API_KEY}`},body:JSON.stringify({model:GROQ_MODEL,max_tokens:Math.min(Math.max(Number(incoming.max_tokens)||300,1),800),temperature:typeof incoming.temperature==="number"?Math.min(Math.max(incoming.temperature,0),1.5):1,messages:groqMessages})});
-    }catch(e){ return json({error:{message:"Could not reach Groq API"}},502,headers); }
-    let data; try{data=await upstream.json();}catch{return json({error:{message:"Invalid upstream response"}},502,headers);}
-    if(!upstream.ok) return json({error:{message:data?.error?.message || "Upstream request failed"}},upstream.status,headers);
-    return json({content:[{type:"text",text:data?.choices?.[0]?.message?.content ?? ""}]},200,headers);
-  }
+    try {
+      upstream = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          max_tokens: incoming.max_tokens || 300,
+          temperature: typeof incoming.temperature === "number" ? incoming.temperature : 1,
+          messages: groqMessages,
+        }),
+      });
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: { message: "Could not reach Groq API: " + String(e) } }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    let groqData;
+    try {
+      groqData = await upstream.json();
+    } catch (e) {
+      return new Response(
+        JSON.stringify({ error: { message: "Groq returned a non-JSON response" } }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!upstream.ok) {
+      // Groq's error shape is usually { error: { message, type, code } } already,
+      // pass it through as-is so the front end can display it.
+      return new Response(JSON.stringify(groqData), {
+        status: upstream.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Convert Groq response -> Anthropic-shaped response the front end expects
+    const replyText = groqData?.choices?.[0]?.message?.content ?? "";
+    const anthropicShaped = {
+      content: [{ type: "text", text: replyText }],
+    };
+
+    return new Response(JSON.stringify(anthropicShaped), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  },
 };
