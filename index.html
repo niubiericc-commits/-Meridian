@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Meridian — Lead Console</title>
+<title>Meridian — Backend</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -45,181 +45,133 @@
     overflow:hidden;
     -webkit-font-smoothing: antialiased;
   }
-  .app{
-    display:grid;
-    grid-template-rows: 60px 1fr;
-    height:100vh;
-  }
+  .app{ display:grid; grid-template-rows: 60px 1fr; height:100vh; }
 
-  /* ---------- topbar ---------- */
   .topbar{
-    background: var(--panel);
-    border-bottom:1px solid var(--border-soft);
-    display:flex;
-    align-items:center;
-    padding: 0 22px;
-    gap:22px;
+    background: var(--panel); border-bottom:1px solid var(--border-soft);
+    display:flex; align-items:center; padding: 0 22px; gap:16px;
   }
   .logo{ display:flex; align-items:center; gap:10px; white-space:nowrap; }
   .logo .mark{
     width:26px;height:26px; border-radius:7px;
-    background: linear-gradient(155deg, var(--brass), #8a6a2f);
+    background: linear-gradient(155deg, #7f8cff, #4a4fb0);
     display:flex;align-items:center;justify-content:center;
-    font-family: var(--font-display); font-weight:600; font-size:14px; color:#171106;
+    font-family: var(--font-display); font-weight:600; font-size:14px; color:#0d0f1f;
   }
   .logo .wordmark{ font-family: var(--font-display); font-size:17px; font-weight:500; letter-spacing:0.2px; }
-  .sim-badge{font-size:9.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--brass-text);border:1px solid var(--brass-dim);background:rgba(201,161,90,.08);padding:3px 7px;border-radius:999px;}
-
-  .nav-tabs{ display:flex; gap:2px; height:100%; }
-  .nav-tab{
-    display:flex; align-items:center;
-    padding:0 16px;
-    font-size:13px; font-weight:500;
-    color: var(--text-dim);
-    cursor:pointer;
-    border-bottom:2px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
+  .badge-backend{
+    font-size:10.5px; letter-spacing:0.3px; text-transform:uppercase; color: var(--text-faint);
+    border:1px solid var(--border); padding:4px 10px; border-radius:20px; white-space:nowrap;
   }
-  .nav-tab:hover{ color: var(--text); }
-  .nav-tab.active{ color: var(--text); border-bottom-color: var(--brass); }
-
-  .lang-toggle{ display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; margin-left:auto; }
-  .lang-toggle button{
-    background: transparent; border:none; color: var(--text-dim);
-    font-family: var(--font-sans); font-size:12px; font-weight:500;
-    padding:7px 13px; cursor:pointer; transition: background 0.15s, color 0.15s;
+  .refresh-note{ margin-left:auto; font-size:11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+  .btn-refresh{
+    background:transparent; border:1px solid var(--border); color:var(--text); border-radius:var(--radius-sm);
+    padding:7px 13px; font-size:12px; font-family: var(--font-sans); cursor:pointer;
   }
-  .lang-toggle button + button{ border-left:1px solid var(--border); }
-  .lang-toggle button.active{ background: var(--brass-dim); color: var(--brass-text); }
+  .btn-refresh:hover{ background: var(--panel2); }
 
-  /* ---------- generic page shell ---------- */
-  .page{ height:100%; overflow-y:auto; }
-  .page-inner{ max-width:1180px; margin:0 auto; padding:28px 28px 60px; }
-  .page-head{ display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:22px; gap:16px; flex-wrap:wrap; }
-  .page-title{ font-family: var(--font-display); font-size:24px; font-weight:500; }
-  .page-sub{ font-size:13px; color:var(--text-faint); margin-top:4px; }
+  .shell{ display:grid; grid-template-columns: 1fr 380px; height:100%; overflow:hidden; }
+  .left{ overflow-y:auto; padding:22px 24px 60px; }
+  .right{ background: var(--panel); border-left:1px solid var(--border-soft); overflow-y:auto; padding:22px 20px 60px; }
 
-  .btn{
-    border:none; border-radius:var(--radius-sm); padding:10px 17px;
-    font-size:13px; font-weight:600; font-family: var(--font-sans);
-    cursor:pointer; white-space:nowrap; transition: filter 0.15s, background 0.15s;
-  }
-  .btn-primary{ background: var(--brass); color:#171106; }
-  .btn-primary:hover{ filter:brightness(1.08); }
-  .btn-primary:disabled{ opacity:0.4; cursor:not-allowed; }
-  .btn-ghost{ background:transparent; border:1px solid var(--border); color:var(--text); }
-  .btn-ghost:hover{ background: var(--panel2); }
-  .btn-sm{ padding:6px 12px; font-size:11.5px; border-radius:6px; }
-  .btn-danger-ghost{ background:transparent; border:1px solid #4a2226; color: var(--red); }
-  .btn-danger-ghost:hover{ background: var(--red-dim); }
-  .btn-green-ghost{ background:transparent; border:1px solid #1e4433; color: var(--green); }
-  .btn-green-ghost:hover{ background: var(--green-dim); }
+  .section-title{ font-family: var(--font-display); font-size:20px; font-weight:500; margin-bottom:4px; }
+  .section-sub{ font-size:12.5px; color:var(--text-faint); margin-bottom:16px; }
 
-  /* ---------- stat cards ---------- */
-  .stat-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom:26px; }
-  .stat-card{ background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); padding:16px 18px; }
-  .stat-card .num{ font-family: var(--font-display); font-size:26px; font-weight:500; }
-  .stat-card .lbl{ font-size:11.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.4px; margin-top:4px; }
-
-  /* ---------- table ---------- */
-  .data-table{ width:100%; border-collapse:collapse; background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); overflow:hidden; }
-  .data-table th{
-    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px;
-    color: var(--text-faint); font-weight:500; padding:11px 14px; border-bottom:1px solid var(--border-soft);
-    background: var(--panel2);
-  }
-  .data-table td{ padding:12px 14px; font-size:13px; border-bottom:1px solid var(--border-soft); vertical-align:middle; }
-  .data-table tr:last-child td{ border-bottom:none; }
-  .data-table tr:hover td{ background: var(--panel2); }
-  .name-cell{ display:flex; align-items:center; gap:10px; }
-  .row-avatar{
-    width:30px;height:30px;border-radius:50%; background: var(--brass-dim); color: var(--brass-text);
-    display:flex;align-items:center;justify-content:center; font-family: var(--font-display); font-size:12px; font-weight:500; flex-shrink:0;
-  }
-  .mono{ font-family: var(--font-mono); font-size:12px; color:var(--text-dim); }
-
-  .status-badge{ font-size:10.5px; padding:3px 9px; border-radius:20px; font-weight:500; letter-spacing:0.2px; white-space:nowrap; }
-  .status-new{ color: var(--text-dim); background: var(--gray-dim); }
-  .status-in_progress{ color:#8fabf0; background: var(--blue-dim); }
-  .status-qualified{ color: var(--green); background: var(--green-dim); }
-  .status-disqualified{ color: var(--red); background: var(--red-dim); }
-
-  .score-bar-wrap{ width:70px; height:5px; border-radius:4px; background: var(--gray-dim); overflow:hidden; }
-  .score-bar-fill{ height:100%; border-radius:4px; }
-  .score-row{ display:flex; align-items:center; gap:8px; }
-  .score-num{ font-family: var(--font-mono); font-size:11.5px; color: var(--text-dim); width:22px; text-align:right; }
-
-  select, input[type=checkbox]{ accent-color: var(--brass); }
-  select{
-    background: var(--card); border:1px solid var(--border); color:var(--text);
-    padding:7px 10px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none;
-  }
-  select:focus{ border-color: var(--brass); }
+  .stat-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:20px; }
+  .stat-card{ background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); padding:14px 16px; }
+  .stat-card .num{ font-family: var(--font-display); font-size:22px; font-weight:500; }
+  .stat-card .lbl{ font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.4px; margin-top:3px; }
 
   .toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
   .toolbar .sep{ width:1px; height:20px; background: var(--border); }
   .toolbar-label{ font-size:12px; color: var(--text-faint); }
-
-  .empty-state{
-    text-align:center; padding:60px 20px; color: var(--text-faint);
+  select{
+    background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:7px 10px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none;
   }
-  .empty-state .title{ font-family: var(--font-display); font-size:17px; color: var(--text); margin-bottom:6px; }
-  .empty-state .body{ font-size:13px; max-width:380px; margin:0 auto 18px; line-height:1.6; }
-
-  textarea.msg-input{
-    width:100%; resize:none; background: var(--card); border:1px solid var(--border); color:var(--text);
-    padding:11px 14px; border-radius:var(--radius-md); font-size:13.5px; font-family: var(--font-sans); height:70px; outline:none;
-  }
-  textarea.msg-input:focus{ border-color: var(--brass); }
-  textarea.msg-input::placeholder{ color: var(--text-faint); }
-
-  .card{ background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); padding:18px 20px; }
-  .card + .card{ margin-top:14px; }
-
-  /* ---------- pipeline (list + chat) ---------- */
-  .pipeline-shell{ display:grid; grid-template-columns: 300px 1fr; height:100%; }
-  .pl-sidebar{ background: var(--panel); border-right:1px solid var(--border-soft); display:flex; flex-direction:column; overflow:hidden; }
-  .pl-search{ padding:14px 16px; border-bottom:1px solid var(--border-soft); }
-  .pl-search input{
-    width:100%; background: var(--card); border:1px solid var(--border); color:var(--text);
+  select:focus{ border-color: #7f8cff; }
+  input[type=checkbox]{ accent-color: #7f8cff; cursor:pointer; }
+  input[type=text]{
+    background: var(--card); border:1px solid var(--border); color:var(--text);
     padding:8px 11px; border-radius:var(--radius-sm); font-size:13px; font-family: var(--font-sans); outline:none;
   }
-  .pl-search input:focus{ border-color: var(--brass); }
-  .pl-list{ overflow-y:auto; flex:1; }
-  .pl-item{ display:flex; align-items:center; gap:11px; padding:12px 16px; border-bottom:1px solid var(--border-soft); cursor:pointer; transition:background 0.12s; }
-  .pl-item:hover{ background: var(--panel2); }
-  .pl-item.active{ background: var(--card); box-shadow: inset 3px 0 0 var(--brass); }
-  .pl-info{ flex:1; min-width:0; }
-  .pl-name-row{ display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
-  .pl-name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pl-time{ font-size:10px; color:var(--text-faint); font-family: var(--font-mono); flex-shrink:0; }
-  .pl-last{ font-size:11.5px; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
-  .pl-unread{ width:7px;height:7px;border-radius:50%; background:var(--brass); flex-shrink:0; box-shadow:0 0 6px var(--brass); }
+  input[type=text]:focus{ border-color: #7f8cff; }
 
-  .chat-col{ display:flex; flex-direction:column; overflow:hidden; }
-  .chat-empty{ flex:1; display:flex; align-items:center; justify-content:center; color: var(--text-faint); font-size:13.5px; font-family: var(--font-display); }
-  .chat-header{ padding:14px 22px; border-bottom:1px solid var(--border-soft); display:flex; align-items:center; gap:12px; }
-  .chat-header .cname{ font-family: var(--font-display); font-size:16px; font-weight:500; }
-  .chat-header .csub{ font-size:11.5px; color:var(--text-faint); margin-top:2px; font-family: var(--font-mono); }
-  .chat-messages{ flex:1; overflow-y:auto; padding:20px 22px; display:flex; flex-direction:column; gap:12px; }
-  .msg-wrap{ max-width:62%; display:flex; flex-direction:column; }
+  .btn{ border:none; border-radius:var(--radius-sm); padding:9px 15px; font-size:12.5px; font-weight:600; font-family: var(--font-sans); cursor:pointer; white-space:nowrap; transition: filter 0.15s, background 0.15s; }
+  .btn-primary{ background: #7f8cff; color:#0d0f1f; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-mini{ background:transparent; border:1px solid var(--border); color: var(--text-dim); font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; }
+  .btn-mini:hover{ background: var(--panel2); }
+  .btn-danger{ background:transparent; border:1px solid #4a2226; color: var(--red); }
+  .btn-danger:hover{ background: var(--red-dim); }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .field-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color: var(--text-faint); margin: 14px 0 6px; }
+  .field-label:first-child{ margin-top:0; }
+  textarea.side-input{
+    width:100%; resize:none; background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:9px 11px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none; height:56px;
+  }
+  textarea.side-input:focus{ border-color: #7f8cff; }
+  textarea.side-input::placeholder{ color: var(--text-faint); }
+  select.side-select{ width:100%; }
+  .side-block{ border-top:1px solid var(--border-soft); padding-top:14px; margin-top:16px; }
+  .side-block:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .typing-hint{ font-size:11px; color: var(--text-faint); font-style:italic; margin-top:6px; }
+
+  .data-table{ width:100%; border-collapse:collapse; background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); overflow:hidden; }
+  .data-table th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color: var(--text-faint);
+    font-weight:500; padding:10px 12px; border-bottom:1px solid var(--border-soft); background: var(--panel2);
+  }
+  .data-table td{ padding:11px 12px; font-size:12.5px; border-bottom:1px solid var(--border-soft); vertical-align:top; }
+  .data-table tr:last-child td{ border-bottom:none; }
+  .data-table tr.row-clickable{ cursor:pointer; transition: background 0.12s; }
+  .data-table tr.row-clickable:hover td{ background: var(--panel2); }
+  .data-table tr.row-selected td{ background: rgba(127,140,255,0.06); }
+  .name-cell{ display:flex; align-items:center; gap:9px; }
+  .row-avatar{
+    width:28px;height:28px;border-radius:50%; background: var(--brass-dim); color: var(--brass-text);
+    display:flex;align-items:center;justify-content:center; font-family: var(--font-display); font-size:11.5px; font-weight:500; flex-shrink:0;
+  }
+  .mono{ font-family: var(--font-mono); font-size:11.5px; color:var(--text-dim); }
+  .msg-preview{ color: var(--text-dim); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .msg-preview .dir-tag{ font-size:9.5px; color: var(--text-faint); margin-right:5px; }
+  .status-badge{ font-size:10px; padding:3px 8px; border-radius:20px; font-weight:500; letter-spacing:0.2px; white-space:nowrap; }
+  .status-new{ color: var(--text-dim); background: var(--gray-dim); }
+  .status-in_progress{ color:#8fabf0; background: var(--blue-dim); }
+  .status-qualified{ color: var(--green); background: var(--green-dim); }
+  .status-disqualified{ color: var(--red); background: var(--red-dim); }
+  .status-awaiting{ color:#e3a86a; background: rgba(227,168,106,0.08); }
+  .status-paused{ color:#8fa3b8; background: rgba(143,163,184,0.1); }
+  .topic-pill{ font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid #3a2a5a; color:#c99bff; background: rgba(201,155,255,0.06); white-space:nowrap; }
+  .score-row{ display:flex; align-items:center; gap:6px; }
+  .score-bar-wrap{ width:50px; height:5px; border-radius:4px; background: var(--gray-dim); overflow:hidden; }
+  .score-bar-fill{ height:100%; border-radius:4px; }
+  .score-num{ font-family: var(--font-mono); font-size:11px; color: var(--text-dim); width:20px; text-align:right; }
+
+  .empty-state{ text-align:center; padding:50px 20px; color: var(--text-faint); }
+  .empty-state .title{ font-family: var(--font-display); font-size:15px; color: var(--text); margin-bottom:5px; }
+  .empty-state .body{ font-size:12.5px; max-width:320px; margin:0 auto; line-height:1.6; }
+
+  .thread-empty{ display:flex; align-items:center; justify-content:center; height:100%; color: var(--text-faint); font-size:13px; font-family: var(--font-display); text-align:center; padding:0 20px; }
+  .thread-header{ padding-bottom:14px; border-bottom:1px solid var(--border-soft); margin-bottom:14px; }
+  .thread-name{ font-family: var(--font-display); font-size:17px; font-weight:500; }
+  .thread-sub{ font-size:11.5px; color:var(--text-faint); margin-top:3px; font-family: var(--font-mono); }
+  .thread-meta-row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+
+  .thread-messages{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+  .msg-wrap{ max-width:88%; display:flex; flex-direction:column; }
   .msg-wrap.out{ align-self:flex-end; align-items:flex-end; }
   .msg-wrap.in{ align-self:flex-start; align-items:flex-start; }
-  .msg{ padding:10px 14px; border-radius:14px; font-size:13.5px; line-height:1.55; }
-  .msg.out{ background: var(--brass); color:#171106; border-bottom-right-radius:4px; }
-  .msg.in{ background: var(--card); border:1px solid var(--border); border-bottom-left-radius:4px; }
-  .msg .meta{ font-size:10px; opacity:0.65; margin-top:5px; font-family: var(--font-mono); }
-  .msg.typing{ color:var(--text-faint); font-style:italic; }
-  .translation{ margin-top:6px; padding:8px 12px; background: rgba(108,147,255,0.07); border:1px dashed var(--blue); border-radius:12px; font-size:12.5px; color:#aec2ff; }
-  .btn-mini{ background:transparent; border:1px solid var(--border); color: var(--blue); font-size:10.5px; font-family: var(--font-sans); padding:3px 9px; border-radius:6px; cursor:pointer; margin-top:6px; }
-  .btn-mini:hover{ background: var(--panel2); }
-  .chat-input-row{ padding:14px 22px; border-top:1px solid var(--border-soft); display:flex; gap:10px; align-items:flex-end; }
-  .chat-input-row textarea{ flex:1; resize:none; background: var(--card); border:1px solid var(--border); color:var(--text); padding:10px 13px; border-radius:var(--radius-md); font-size:13.5px; font-family: var(--font-sans); height:42px; outline:none; }
-  .chat-input-row textarea:focus{ border-color: var(--brass); }
+  .msg{ padding:8px 12px; border-radius:12px; font-size:12.5px; line-height:1.5; }
+  .msg.out{ background: var(--brass); color:#171106; border-bottom-right-radius:3px; }
+  .msg.in{ background: var(--card); border:1px solid var(--border); border-bottom-left-radius:3px; }
+  .msg .meta{ font-size:9.5px; opacity:0.65; margin-top:4px; font-family: var(--font-mono); }
 
-  ::-webkit-scrollbar{ width:9px; }
-  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:5px; }
-  ::-webkit-scrollbar-track{ background:transparent; }
+  .side-actions{ display:flex; flex-direction:column; gap:8px; }
 
   .toast{
     position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
@@ -229,32 +181,25 @@
   }
   .toast.show{ opacity:1; }
 
-  .checkbox-cell{ width:34px; }
-  .topic-pill{ font-size:10.5px; padding:2px 8px; border-radius:20px; border:1px solid #3a2a5a; color:#c99bff; background: rgba(201,155,255,0.06); white-space:nowrap; }
-  .data-actions{display:flex;gap:8px;flex-wrap:wrap;}
-  @media (max-width: 820px){
-    body{overflow:auto;} .app{height:auto;min-height:100vh;grid-template-rows:auto 1fr;}
-    .topbar{padding:10px 12px;gap:10px;flex-wrap:wrap;} .nav-tabs{order:3;width:100%;overflow-x:auto;height:42px;}
-    .nav-tab{padding:0 12px;flex:0 0 auto;} .lang-toggle{margin-left:auto;} .page{height:auto;min-height:calc(100vh - 110px);}
-    .page-inner{padding:20px 14px 50px;} .stat-grid{grid-template-columns:repeat(2,1fr);}
-    .pipeline-shell{grid-template-columns:1fr;height:auto;} .pl-sidebar{height:310px;border-right:0;border-bottom:1px solid var(--border-soft);}
-    .data-table{display:block;overflow-x:auto;white-space:nowrap;}
-  }
-  @media (max-width: 480px){.stat-grid{grid-template-columns:1fr 1fr;gap:9px}.stat-card{padding:13px}.stat-card .num{font-size:22px}.wordmark{display:none}}
+  ::-webkit-scrollbar{ width:9px; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:5px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
 </style>
 </head>
 <body>
 
 <div class="app">
   <div class="topbar">
-    <div class="logo"><div class="mark">M</div><div class="wordmark">Meridian</div><span class="sim-badge">Simulation</span></div>
-    <div class="nav-tabs" id="navTabs"></div>
-    <div class="lang-toggle">
-      <button id="uiLangEn" class="active">EN</button>
-      <button id="uiLangZh">中文</button>
-    </div>
+    <div class="logo"><div class="mark">M</div><div class="wordmark">Meridian backend</div></div>
+    <span class="badge-backend">Internal · reply control</span>
+    <span class="refresh-note" id="refreshNote"></span>
+    <button class="btn-refresh" id="refreshBtn">Refresh</button>
+    <button class="btn-refresh" id="resetAllBtn" style="color: var(--red); border-color:#4a2226;">Reset all conversations</button>
   </div>
-  <div id="pageRoot" class="page"></div>
+  <div class="shell">
+    <div class="left" id="leftPane"></div>
+    <div class="right" id="rightPane"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -268,122 +213,20 @@
 const API_ENDPOINT = "https://meridian-proxy.niubiericc.workers.dev"; // <-- replace with your deployed worker URL
 
 /* =========================================================
-   i18n
-   ========================================================= */
-const UI = {
-  en: {
-    navOverview:"Overview", navImport:"Import leads", navAdmin:"Admin", navOutreach:"Outreach", navPipeline:"Pipeline", navQualified:"Qualified",
-    ovTitle:"Pipeline overview", ovSub:"Snapshot of the full acquisition funnel",
-    stTotal:"Total leads", stContacted:"Contacted", stQualified:"Qualified", stDisqualified:"Disqualified",
-    importTitle:"Import leads", importSub:"Pull a new batch of leads into the database before running outreach",
-    importBtn: n => `Import ${n} new leads`,
-    importBtnPlain: "Import leads",
-    importedToast: n => `Imported ${n} new leads`,
-    recentImports:"Recently imported",
-    adminTitle:"Conversation direction", adminSub:"Bulk-assign the topic angle the AI should steer each conversation toward",
-    applyTo: n => `Apply to ${n} selected`,
-    topicCol:"Direction", nameCol:"Name", statusCol:"Status", scoreCol:"Score", industryCol:"Industry", langCol:"Language", actionsCol:"Actions",
-    outreachTitle:"Outreach", outreachSub:"Select leads and send your opening message",
-    composerPh:"Write your outreach message...",
-    sendBtn: n => `Send to ${n} selected`,
-    sendingBtn:"Sending...",
-    noTextToast:"Enter a message first",
-    noSelToast:"Select at least one lead",
-    sentToast: n => `Sent to ${n} leads`,
-    onlyNewHint:"Showing leads not yet contacted",
-    pipelineTitle:"Pipeline", pipelineSub:"All active conversations",
-    qualifiedTitle:"Qualified leads", qualifiedSub:"Final review — confirm or reject leads based on conversation quality",
-    filterAll:"All", filterInProgress:"In progress", filterQualified:"Qualified", filterDisqualified:"Disqualified",
-    markQualified:"Mark qualified", markDisqualified:"Mark disqualified",
-    emptyImportTitle:"No leads yet", emptyImportBody:"Import your first batch of leads to start building the pipeline.",
-    emptyOutreachTitle:"Nothing to send to", emptyOutreachBody:"All leads have already been contacted, or you haven't imported any yet.",
-    emptyPipelineTitle:"No conversations yet", emptyPipelineBody:"Run an outreach batch first — conversations will show up here once leads are contacted.",
-    emptyQualifiedTitle:"No results yet", emptyQualifiedBody:"Once leads start replying, they'll appear here for final screening.",
-    selectContact:"Select a lead to open the thread",
-    chatPh: name => `Message ${name}...`,
-    send:"Send",
-    typing: name => `${name} is typing...`,
-    translateBtn:"Translate to Chinese",
-    translating:"Translating...",
-    searchPh:"Search leads",
-    selectAll:"Select all", clearSel:"Clear",
-    selCount: n => `${n} selected`
-  },
-  zh: {
-    navOverview:"总览", navImport:"导入客户", navAdmin:"后台设置", navOutreach:"群发触达", navPipeline:"对话流水", navQualified:"客户筛选",
-    ovTitle:"获客流程总览", ovSub:"完整获客漏斗数据一览",
-    stTotal:"客户总数", stContacted:"已触达", stQualified:"已合格", stDisqualified:"已淘汰",
-    importTitle:"导入客户", importSub:"在发起触达之前，先批量导入一批新客户到数据库",
-    importBtn: n => `导入 ${n} 位新客户`,
-    importBtnPlain: "批量导入客户",
-    importedToast: n => `已导入 ${n} 位新客户`,
-    recentImports:"最近导入",
-    adminTitle:"对话方向设置", adminSub:"批量为客户设置AI对话的话题导向",
-    applyTo: n => `应用到已选中的 ${n} 位`,
-    topicCol:"话题导向", nameCol:"姓名", statusCol:"状态", scoreCol:"意向分", industryCol:"行业", langCol:"语言", actionsCol:"操作",
-    outreachTitle:"群发触达", outreachSub:"选择客户，发送第一句触达话术",
-    composerPh:"输入触达话术...",
-    sendBtn: n => `发送给 ${n} 位已选中客户`,
-    sendingBtn:"发送中...",
-    noTextToast:"请先输入消息内容",
-    noSelToast:"请至少选中一位客户",
-    sentToast: n => `已发送给 ${n} 位客户`,
-    onlyNewHint:"仅显示尚未触达的客户",
-    pipelineTitle:"对话流水", pipelineSub:"当前所有进行中的对话",
-    qualifiedTitle:"客户筛选", qualifiedSub:"最终人工确认——根据对话质量筛选合格客户",
-    filterAll:"全部", filterInProgress:"沟通中", filterQualified:"已合格", filterDisqualified:"已淘汰",
-    markQualified:"标记为合格", markDisqualified:"标记为淘汰",
-    emptyImportTitle:"暂无客户", emptyImportBody:"先导入第一批客户，开始建立获客流水线。",
-    emptyOutreachTitle:"暂无可发送对象", emptyOutreachBody:"所有客户都已经触达过，或者你还没有导入客户。",
-    emptyPipelineTitle:"暂无对话", emptyPipelineBody:"先完成一轮群发触达——客户被联系后，对话会显示在这里。",
-    emptyQualifiedTitle:"暂无筛选结果", emptyQualifiedBody:"客户开始回复后，会出现在这里供你做最终筛选。",
-    selectContact:"选择左侧客户查看对话",
-    chatPh: name => `给 ${name} 发消息...`,
-    send:"发送",
-    typing: name => `${name} 正在输入...`,
-    translateBtn:"翻译成中文",
-    translating:"翻译中...",
-    searchPh:"搜索客户",
-    selectAll:"全选", clearSel:"清空",
-    selCount: n => `已选 ${n} 位`
-  }
-};
-let uiLang = "en";
-function t(){ return UI[uiLang]; }
-
-/* =========================================================
-   Topic directions (admin-controlled conversation angle)
+   Shared constants (kept in sync with index.html)
    ========================================================= */
 const TOPIC_DIRECTIONS = [
-  {id:"price",     en:"Price & incentives",   zh:"价格优惠导向",   prompt:"Steer the conversation toward pricing, discounts, bundles, and limited-time offers. Ask about cost and try to negotiate."},
-  {id:"trust",     en:"Trust & credibility",  zh:"信任背书导向",   prompt:"Focus on trust: ask about credentials, guarantees, other customers, and reviews before committing to anything."},
-  {id:"urgency",   en:"Urgency & scarcity",   zh:"紧迫感导向",     prompt:"Respond with a sense of urgency or worry about missing out, ask about deadlines and limited availability."},
-  {id:"education", en:"Product education",   zh:"产品功能导向",   prompt:"Ask detailed, curious questions about how the product or service actually works and what it includes."},
-  {id:"rapport",   en:"Casual rapport",       zh:"关系破冰导向",   prompt:"Keep the tone casual and friendly, small talk before getting into business specifics."},
-  {id:"objection", en:"Objection practice",   zh:"异议处理导向",   prompt:"Raise realistic objections and hesitations (too expensive, bad timing, already using something else) for the salesperson to handle."}
+  {id:"price",     en:"Price & incentives",   prompt:"Steer the conversation toward pricing, discounts, bundles, and limited-time offers. Ask about cost and try to negotiate."},
+  {id:"trust",     en:"Trust & credibility",  prompt:"Focus on trust: ask about credentials, guarantees, other customers, and reviews before committing to anything."},
+  {id:"urgency",   en:"Urgency & scarcity",   prompt:"Respond with a sense of urgency or worry about missing out, ask about deadlines and limited availability."},
+  {id:"education", en:"Product education",   prompt:"Ask detailed, curious questions about how the product or service actually works and what it includes."},
+  {id:"rapport",   en:"Casual rapport",       prompt:"Keep the tone casual and friendly, small talk before getting into business specifics."},
+  {id:"objection", en:"Objection practice",   prompt:"Raise realistic objections and hesitations (too expensive, bad timing, already using something else) for the salesperson to handle."}
 ];
 function topicById(id){ return TOPIC_DIRECTIONS.find(x=>x.id===id) || TOPIC_DIRECTIONS[4]; }
-function topicLabel(id){ const tp = topicById(id); return uiLang==='zh' ? tp.zh : tp.en; }
 
-/* =========================================================
-   Fake Canadian lead generator
-   ========================================================= */
-const namesEN = ["James Wilson","Emily Carter","Michael Brown","Olivia Bennett","Ryan Thompson","Sarah Mitchell","David Clarke","Jessica Reid","Andrew Scott","Laura Hughes","Kevin Walsh","Natalie Price","Brian Foster","Megan Ward"];
-const namesFR = ["Julien Tremblay","Chloé Gagnon","Marc-André Roy","Camille Bouchard","Étienne Leclerc","Sophie Lavoie","Nicolas Fortin","Amélie Girard","Simon Bélanger","Isabelle Côté","Mathieu Pelletier","Laurence Morin"];
-const areaCodes = ["416","647","437","514","438","604","613","780","902","204"];
-const industries = {
-  zh: ["教育培训","美妆护肤","健身私教","家居建材","跨境电商","少儿英语","保险理财","汽车销售","本地餐饮","职业培训"],
-  en: ["Education & training","Beauty & skincare","Personal fitness","Home renovation","Cross-border e-commerce","Kids' English tutoring","Insurance & finance","Auto sales","Local dining","Career coaching"]
-};
-const attitudes = [
-  "interested and upbeat, easily persuaded by discounts, but asks about pricing details",
-  "cautious, likes to compare options, thinks things are pricey, needs several follow-ups",
-  "direct and decisive, but cares a lot about trustworthiness and guarantees",
-  "just discovered the product, asks very basic questions",
-  "has bought something similar before, trusts the seller, casual tone",
-  "busy, replies briefly or sometimes leaves messages unread"
-];
-const speechStyles = [
+const industriesEn = ["Education & training","Beauty & skincare","Personal fitness","Home renovation","Cross-border e-commerce","Kids' English tutoring","Insurance & finance","Auto sales","Local dining","Career coaching"];
+const speechStylesFallback = [
   "keeps replies very short and clipped, rarely more than a few words",
   "writes in complete, slightly formal sentences with proper punctuation",
   "casual texter — lowercase, minimal punctuation, the occasional 'lol' or 'haha'",
@@ -395,55 +238,16 @@ const speechStyles = [
   "skeptical phrasing — hedges with 'I guess' / 'maybe' / 'not sure but'",
   "enthusiastic, uses exclamation points and upbeat language"
 ];
-
-function randPick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
-function randPhone(){
-  const area = randPick(areaCodes);
-  const line = String(Math.floor(1000+Math.random()*8999)).padStart(4,'0');
-  return `+1 (${area}) 555-${line}`;
-}
-function randEmail(name, uid){
-  const domains = ["mail-demo.ca","test-inbox.net","sample-mail.org"];
-  const slug = name.toLowerCase().replace(/[^a-z]+/g,".").replace(/^\.|\.$/g,"");
-  return slug + uid + "@" + randPick(domains);
-}
-function uid(){ return 'l' + Date.now().toString(36) + Math.floor(Math.random()*10000).toString(36); }
-
-function genLead(){
-  const lang = Math.random() < 0.5 ? "en" : "fr";
-  const name = lang === "en" ? randPick(namesEN) : randPick(namesFR);
-  const industryIdx = Math.floor(Math.random()*industries.zh.length);
-  return {
-    id: uid(),
-    name,
-    phone: randPhone(),
-    email: randEmail(name, Math.floor(Math.random()*99999)),
-    lang,
-    industryIdx,
-    attitude: randPick(attitudes),
-    speechStyle: randPick(speechStyles),
-    topic: randPick(TOPIC_DIRECTIONS).id,
-    status: "new",        // new | in_progress | qualified | disqualified
-    manualOverride: false,
-    score: 0,
-    messages: [],
-    unread: false,
-    createdAt: Date.now(),
-    pausedUntil: null,          // timestamp (ms) — while in the future, this lead won't auto-reply
-    lastPauseMessageCount: 0,   // message count when the lead last paused, to measure the next stretch
-    pauseThreshold: 9 + Math.floor(Math.random()*5), // 9-13 messages before finding an excuse to step away
-    hosted: false // whether this lead is in the admin's managed/hosted auto-reply list
-  };
-}
-function genLeadBatch(n){
-  const batch = [];
-  for(let i=0;i<n;i++) batch.push(genLead());
-  return batch;
+// Older leads saved before speechStyle existed won't have one — assign a
+// stable one deterministically from the lead id so it doesn't change on
+// every render, instead of falling back to the same generic voice for all.
+function getSpeechStyle(l){
+  if(l.speechStyle) return l.speechStyle;
+  let hash = 0;
+  for(let i=0;i<l.id.length;i++) hash = (hash*31 + l.id.charCodeAt(i)) >>> 0;
+  return speechStylesFallback[hash % speechStylesFallback.length];
 }
 
-/* =========================================================
-   Local "database" (localStorage)
-   ========================================================= */
 const DB_KEY = "meridian_leads_db_v1";
 function loadDB(){
   try{
@@ -456,23 +260,60 @@ function saveDB(){
   try{ localStorage.setItem(DB_KEY, JSON.stringify(leads)); }catch(e){}
 }
 
-let leads = loadDB();
-if(!leads || !Array.isArray(leads) || leads.length===0){
-  leads = genLeadBatch(12);
-  saveDB();
-}
-
-let currentPage = "overview";
+let leads = loadDB() || [];
 let activeLeadId = null;
 let selectedIds = new Set();
+let topicFilter = "all";
+let statusFilter = "awaiting"; // awaiting = has an unanswered outbound message
+let activeGenerations = 0; // how many generateReply() calls are in flight right now
+let speedMode = "realistic"; // "realistic" (sequential, human-paced) | "bulk" (parallel, faster)
+const BULK_CONCURRENCY = 8;
+function concurrencyCap(){ return speedMode === "bulk" ? BULK_CONCURRENCY : 1; }
+function atCapacity(){ return activeGenerations >= concurrencyCap(); }
+
+// Manual bulk queue — visible, editable list of leads picked to reply this
+// round. Separate from selectedIds, which is only used to build a new queue;
+// once a queue is running, changing checkboxes elsewhere never touches it.
+let bulkQueue = []; // [{ id, status: 'waiting' | 'active' | 'done' }]
+let abortControllers = {}; // leadId -> AbortController, for in-flight generations only
+
+// Hosted auto-reply — scoped ONLY to leads you've explicitly added to the
+// hosted list (l.hosted === true). While on, it keeps those conversations
+// going on their own (new replies feed back in automatically as the lead
+// gets messaged again) — it never touches any lead outside that list.
+let hostedEnabled = false;
+let hostedTimer = null;
+
+function resetAllConversations(){
+  if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
+  clearQueue();
+  leads.forEach(l=>{
+    l.messages = [];
+    l.status = "new";
+    l.score = 0;
+    l.manualOverride = false;
+    l.unread = false;
+    l.pausedUntil = null;
+    l.lastPauseMessageCount = 0;
+    l.pauseThreshold = 9 + Math.floor(Math.random()*5);
+  });
+  saveDB();
+  activeLeadId = null;
+  selectedIds.clear();
+  showToast("All conversations reset");
+  renderLeft();
+  renderRight();
+}
 
 function initials(name){
   const parts = name.split(" ");
   return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
 }
-function timeNow(){
-  const d = new Date();
-  return d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0');
+function escapeHtml(str){ return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function scoreColor(score){
+  if(score>=70) return "var(--green)";
+  if(score>=40) return "var(--brass)";
+  return "var(--text-faint)";
 }
 function showToast(msg){
   const el = document.getElementById('toast');
@@ -480,660 +321,704 @@ function showToast(msg){
   el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'), 2200);
 }
-function industryName(lead){ return uiLang === 'zh' ? industries.zh[lead.industryIdx] : industries.en[lead.industryIdx]; }
-function escapeHtml(str){ return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-function scoreColor(score){
-  if(score>=70) return "var(--green)";
-  if(score>=40) return "var(--brass)";
-  return "var(--text-faint)";
+function needsReply(lead){
+  const last = lead.messages[lead.messages.length-1];
+  return !!last && last.dir === 'out';
 }
-function statusLabel(status){
-  const s = t();
-  return { new: s.filterAll==="全部"?"新客户":"New", in_progress: s.filterInProgress, qualified: s.filterQualified, disqualified: s.filterDisqualified }[status] || status;
+function isPaused(lead){
+  return !!lead.pausedUntil && Date.now() < lead.pausedUntil;
 }
-
-/* =========================================================
-   Nav
-   ========================================================= */
-const NAV_ITEMS = [
-  {id:"overview", key:"navOverview"},
-  {id:"import", key:"navImport"},
-  {id:"admin", key:"navAdmin"},
-  {id:"outreach", key:"navOutreach"},
-  {id:"pipeline", key:"navPipeline"},
-  {id:"qualified", key:"navQualified"}
-];
-
-function renderNav(){
-  const s = t();
-  const wrap = document.getElementById('navTabs');
-  wrap.innerHTML = "";
-  NAV_ITEMS.forEach(item=>{
-    const el = document.createElement('div');
-    el.className = "nav-tab" + (currentPage===item.id ? " active" : "");
-    el.textContent = s[item.key];
-    el.addEventListener('click', ()=>{ currentPage = item.id; activeLeadId=null; selectedIds.clear(); renderAll(); });
-    wrap.appendChild(el);
-  });
+function formatClock(ts){
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0');
 }
 
 /* =========================================================
-   Page: Overview
+   Left pane: monitoring table + bulk AI reply controls
    ========================================================= */
-function renderOverview(){
-  const s = t();
+function renderLeft(){
+  const wrap = document.getElementById('leftPane');
   const total = leads.length;
   const contacted = leads.filter(l=>l.status!=="new").length;
+  const awaiting = leads.filter(needsReply).length;
   const qualified = leads.filter(l=>l.status==="qualified").length;
-  const disqualified = leads.filter(l=>l.status==="disqualified").length;
+  const hostedCount = leads.filter(l=>l.hosted).length;
 
-  const recent = [...leads].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6);
+  let pool = leads.filter(l=>l.status!=="new");
+  if(statusFilter==="awaiting") pool = pool.filter(needsReply);
+  else if(statusFilter==="hosted") pool = pool.filter(l=>l.hosted);
+  else if(statusFilter!=="all") pool = pool.filter(l=>l.status===statusFilter);
+  if(topicFilter!=="all") pool = pool.filter(l=>l.topic===topicFilter);
+  pool = pool.slice().sort((a,b)=>{
+    const at = a.messages[a.messages.length-1]?.ts || 0;
+    const bt = b.messages[b.messages.length-1]?.ts || 0;
+    return bt - at;
+  });
 
-  return `
-    <div class="page-inner">
-      <div class="page-head">
-        <div><div class="page-title">${s.ovTitle}</div><div class="page-sub">${s.ovSub}</div></div>
-        <div class="data-actions">
-          <button class="btn btn-ghost btn-sm" id="exportDataBtn">Export backup</button>
-          <button class="btn btn-ghost btn-sm" id="importDataBtn">Import backup</button>
-          <input type="file" id="importDataFile" accept="application/json" hidden>
-        </div>
-      </div>
-      <div class="stat-grid">
-        <div class="stat-card"><div class="num">${total}</div><div class="lbl">${s.stTotal}</div></div>
-        <div class="stat-card"><div class="num">${contacted}</div><div class="lbl">${s.stContacted}</div></div>
-        <div class="stat-card"><div class="num" style="color:var(--green)">${qualified}</div><div class="lbl">${s.stQualified}</div></div>
-        <div class="stat-card"><div class="num" style="color:var(--red)">${disqualified}</div><div class="lbl">${s.stDisqualified}</div></div>
-      </div>
-      <div class="card">
-        <div style="font-size:13px; font-weight:600; margin-bottom:12px;">${s.recentImports}</div>
-        <table class="data-table">
-          <thead><tr><th>${s.nameCol}</th><th>${s.industryCol}</th><th>${s.statusCol}</th><th>${s.scoreCol}</th></tr></thead>
-          <tbody>
-            ${recent.map(l => `
-              <tr>
-                <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
-                <td>${industryName(l)}</td>
-                <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
-                <td>
-                  <div class="score-row">
-                    <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${l.score}%; background:${scoreColor(l.score)};"></div></div>
-                    <span class="score-num">${l.score}</span>
-                  </div>
-                </td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
+  const selCount = [...selectedIds].filter(id=>pool.some(l=>l.id===id)).length;
+  const selHostedCount = [...selectedIds].filter(id=>{ const l = leads.find(x=>x.id===id); return l && l.hosted; }).length;
+  const selNotHostedCount = selCount - selHostedCount;
+
+  wrap.innerHTML = `
+    <div class="section-title">Message monitor</div>
+    <div class="section-sub">Everything the outreach page has sent, and who's waiting on a reply</div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total leads</div></div>
+      <div class="stat-card"><div class="num">${contacted}</div><div class="lbl">Contacted</div></div>
+      <div class="stat-card"><div class="num" style="color:#e3a86a">${awaiting}</div><div class="lbl">Awaiting reply</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--green)">${qualified}</div><div class="lbl">Qualified</div></div>
     </div>
-  `;
-}
 
-/* =========================================================
-   Page: Import leads
-   ========================================================= */
-function renderImport(){
-  const s = t();
-  const recent = [...leads].sort((a,b)=>b.createdAt-a.createdAt).slice(0,10);
-  return `
-    <div class="page-inner">
-      <div class="page-head">
-        <div><div class="page-title">${s.importTitle}</div><div class="page-sub">${s.importSub}</div></div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <input type="number" id="importCount" value="50" min="1" max="2000" style="width:90px; background:var(--card); border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:var(--radius-sm); font-size:13px; font-family:var(--font-sans);">
-          <button class="btn btn-primary" id="importBtn">${s.importBtnPlain}</button>
-        </div>
-      </div>
-      <div class="stat-grid">
-        <div class="stat-card"><div class="num">${leads.length}</div><div class="lbl">${s.stTotal}</div></div>
-      </div>
-      ${leads.length===0 ? `
-        <div class="empty-state"><div class="title">${s.emptyImportTitle}</div><div class="body">${s.emptyImportBody}</div></div>
-      ` : `
-        <div class="card">
-          <div style="font-size:13px; font-weight:600; margin-bottom:12px;">${s.recentImports}</div>
-          <table class="data-table">
-            <thead><tr><th>${s.nameCol}</th><th>${s.langCol}</th><th>${s.industryCol}</th><th>${s.statusCol}</th></tr></thead>
-            <tbody>
-              ${recent.map(l => `
-                <tr>
-                  <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
-                  <td class="mono">${l.lang.toUpperCase()}</td>
-                  <td>${industryName(l)}</td>
-                  <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-/* =========================================================
-   Page: Admin (bulk topic direction control)
-   ========================================================= */
-function renderAdmin(){
-  const s = t();
-  const rows = leads;
-  const selCount = [...selectedIds].filter(id=>leads.some(l=>l.id===id)).length;
-  return `
-    <div class="page-inner">
-      <div class="page-head">
-        <div><div class="page-title">${s.adminTitle}</div><div class="page-sub">${s.adminSub}</div></div>
-      </div>
-      <div class="toolbar">
-        <span class="toolbar-label">${s.selCount(selCount)}</span>
-        <div class="sep"></div>
-        <button class="btn-mini" id="adminSelectAll" style="margin-top:0;">${s.selectAll}</button>
-        <button class="btn-mini" id="adminClearSel" style="margin-top:0;">${s.clearSel}</button>
-        <div class="sep"></div>
-        <select id="bulkTopicSelect">
-          ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}">${uiLang==='zh'?tp.zh:tp.en}</option>`).join("")}
-        </select>
-        <button class="btn btn-primary btn-sm" id="applyTopicBtn" ${selCount===0?"disabled":""}>${s.applyTo(selCount)}</button>
-      </div>
-      ${rows.length===0 ? `
-        <div class="empty-state"><div class="title">${s.emptyImportTitle}</div><div class="body">${s.emptyImportBody}</div></div>
-      ` : `
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="checkbox-cell"></th>
-            <th>${s.nameCol}</th>
-            <th>${s.industryCol}</th>
-            <th>${s.topicCol}</th>
-            <th>${s.statusCol}</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(l => `
-            <tr>
-              <td class="checkbox-cell"><input type="checkbox" data-id="${l.id}" class="admin-row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
-              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
-              <td>${industryName(l)}</td>
-              <td><span class="topic-pill">${topicLabel(l.topic)}</span></td>
-              <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-      `}
-    </div>
-  `;
-}
-
-/* =========================================================
-   Page: Outreach (bulk broadcast to new leads)
-   ========================================================= */
-function renderOutreach(){
-  const s = t();
-  const targetable = leads.filter(l=>l.status==="new");
-  const selCount = [...selectedIds].filter(id=>targetable.some(l=>l.id===id)).length;
-  return `
-    <div class="page-inner">
-      <div class="page-head">
-        <div><div class="page-title">${s.outreachTitle}</div><div class="page-sub">${s.outreachSub}</div></div>
-      </div>
-      ${targetable.length===0 ? `
-        <div class="empty-state"><div class="title">${s.emptyOutreachTitle}</div><div class="body">${s.emptyOutreachBody}</div></div>
-      ` : `
-        <div class="card" style="margin-bottom:16px;">
-          <textarea class="msg-input" id="outreachText" placeholder="${s.composerPh}"></textarea>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-            <span class="toolbar-label">${s.onlyNewHint}</span>
-            <button class="btn btn-primary" id="outreachSendBtn" ${selCount===0?"disabled":""}>${s.sendBtn(selCount)}</button>
+    <div class="card" style="margin-bottom:18px; ${hostedEnabled ? 'border-color:#3a3fb0;' : ''}">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">Hosted auto-reply — ${hostedCount} lead${hostedCount===1?"":"s"} in the list</div>
+          <div class="toolbar-label" style="margin-top:2px;">
+            Only ever touches leads you've explicitly added to this list — never anyone else. While on, it keeps their conversations going automatically (checks every few seconds); replies still land in the queue below, paced the same as everything else.
           </div>
         </div>
-        <div class="toolbar">
-          <span class="toolbar-label">${s.selCount(selCount)}</span>
-          <div class="sep"></div>
-          <button class="btn-mini" id="outreachSelectAll" style="margin-top:0;">${s.selectAll}</button>
-          <button class="btn-mini" id="outreachClearSel" style="margin-top:0;">${s.clearSel}</button>
+        <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer;">
+          <span class="toolbar-label">${hostedEnabled ? "Running" : "Off"}</span>
+          <input type="checkbox" id="hostedToggle" ${hostedEnabled?"checked":""} style="width:34px; height:18px;">
+        </label>
+      </div>
+      ${selCount>0 ? `
+      <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
+        <button class="btn-mini" id="addHostedBtn" ${selNotHostedCount===0?"disabled":""}>Add ${selNotHostedCount} selected to hosted list</button>
+        <button class="btn-mini" id="removeHostedBtn" style="color:var(--red);" ${selHostedCount===0?"disabled":""}>Remove ${selHostedCount} selected from list</button>
+      </div>
+      ` : ""}
+    </div>
+
+    <div class="toolbar">
+      <select id="statusFilterSel">
+        <option value="awaiting" ${statusFilter==="awaiting"?"selected":""}>Awaiting reply</option>
+        <option value="all" ${statusFilter==="all"?"selected":""}>All contacted</option>
+        <option value="hosted" ${statusFilter==="hosted"?"selected":""}>Hosted list only</option>
+        <option value="in_progress" ${statusFilter==="in_progress"?"selected":""}>In progress</option>
+        <option value="qualified" ${statusFilter==="qualified"?"selected":""}>Qualified</option>
+        <option value="disqualified" ${statusFilter==="disqualified"?"selected":""}>Disqualified</option>
+      </select>
+      <select id="topicFilterSel">
+        <option value="all" ${topicFilter==="all"?"selected":""}>All directions</option>
+        ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${topicFilter===tp.id?"selected":""}>${tp.en}</option>`).join("")}
+      </select>
+      <div class="sep"></div>
+      <button class="btn-mini" id="selectAllBtn">Select all</button>
+      <button class="btn-mini" id="clearSelBtn">Clear</button>
+      <span class="toolbar-label">${selCount} selected</span>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:10px;">
+      <span class="toolbar-label">Speed mode</span>
+      <select id="speedModeSel">
+        <option value="realistic" ${speedMode==="realistic"?"selected":""}>Realistic — sequential, human-paced (slow)</option>
+        <option value="bulk" ${speedMode==="bulk"?"selected":""}>Bulk — up to ${BULK_CONCURRENCY} in parallel (fast, less lifelike)</option>
+      </select>
+      ${speedMode==="bulk" ? `<span class="toolbar-label" style="color:#e3a86a;">Multiple leads will reply at the same time in this mode.</span>` : ""}
+    </div>
+
+    <div class="toolbar" style="margin-bottom:18px;">
+      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Run — add ${selCount} selected to queue</button>
+      <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
+    </div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Run fires once for whatever you've selected. For leads you want followed up automatically as the conversation continues, add them to the hosted list above instead.</div>
+
+    ${bulkQueue.length>0 ? `
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <div style="font-size:13px; font-weight:600;">Reply queue — ${bulkQueue.length} total (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done${bulkQueue.filter(q=>q.status==='failed').length>0 ? `, <span style="color:var(--red);">${bulkQueue.filter(q=>q.status==='failed').length} failed</span>` : ""})</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-mini" id="clearFinishedBtn">Clear finished</button>
+          <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
         </div>
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th class="checkbox-cell"></th>
-              <th>${s.nameCol}</th>
-              <th>${s.industryCol}</th>
-              <th>${s.topicCol}</th>
-              <th>${s.langCol}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${targetable.map(l => `
-              <tr>
-                <td class="checkbox-cell"><input type="checkbox" data-id="${l.id}" class="outreach-row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
-                <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
-                <td>${industryName(l)}</td>
-                <td><span class="topic-pill">${topicLabel(l.topic)}</span></td>
-                <td class="mono">${l.lang.toUpperCase()}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `}
+      </div>
+      <div class="toolbar-label" style="margin-bottom:10px; font-size:11px;">Every reply the AI is doing or about to do lands here — nothing happens off-list, and nothing runs unless you clicked Run.</div>
+      <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+        ${bulkQueue.map((q, qi) => {
+          const ql = leads.find(x=>x.id===q.id);
+          if(!ql) return "";
+          const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : q.status==='failed' ? "failed" : "done";
+          const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : q.status==='failed' ? "var(--red)" : "var(--green)";
+          return `
+          <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid ${q.status==='failed'?'#4a2226':'var(--border-soft)'}; border-radius:8px;">
+            <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
+            <div style="flex:1; font-size:12.5px;">${ql.name}</div>
+            <div style="font-size:11px; color:${statusColor}; min-width:70px; text-align:right;">${statusText}</div>
+            ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
+            ${q.status==='failed' ? `<button class="btn-mini" data-retry="${q.id}" style="color:var(--blue);">Retry</button>` : ""}
+            ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
     </div>
-  `;
-}
+    ` : ""}
 
-/* =========================================================
-   Page: Pipeline (list + chat)
-   ========================================================= */
-function renderPipeline(){
-  const s = t();
-  const contacted = leads.filter(l=>l.status!=="new");
-  if(contacted.length===0){
-    return `<div class="page-inner"><div class="page-head"><div><div class="page-title">${s.pipelineTitle}</div><div class="page-sub">${s.pipelineSub}</div></div></div>
-      <div class="empty-state"><div class="title">${s.emptyPipelineTitle}</div><div class="body">${s.emptyPipelineBody}</div></div></div>`;
-  }
-  return `
-    <div class="pipeline-shell">
-      <div class="pl-sidebar">
-        <div class="pl-search"><input type="text" id="pipelineSearch" placeholder="${s.searchPh}"></div>
-        <div class="pl-list" id="pipelineList"></div>
-      </div>
-      <div class="chat-col" id="pipelineChat"></div>
-    </div>
-  `;
-}
-
-function renderPipelineList(){
-  const s = t();
-  const kw = (document.getElementById('pipelineSearch')?.value || "").trim().toLowerCase();
-  const wrap = document.getElementById('pipelineList');
-  if(!wrap) return;
-  const contacted = leads.filter(l=>l.status!=="new")
-    .filter(l => !kw || l.name.toLowerCase().includes(kw) || industryName(l).toLowerCase().includes(kw))
-    .sort((a,b)=>{
-      const at = a.messages[a.messages.length-1]?.ts || 0;
-      const bt = b.messages[b.messages.length-1]?.ts || 0;
-      return bt - at;
-    });
-  wrap.innerHTML = "";
-  contacted.forEach(l=>{
-    const last = l.messages[l.messages.length-1];
-    const div = document.createElement('div');
-    div.className = "pl-item" + (l.id===activeLeadId ? " active" : "");
-    const lastPrefix = last ? (last.dir==='out' ? (uiLang==='zh'?'我：':'You: ') : '') : '';
-    div.innerHTML = `
-      <div class="row-avatar">${initials(l.name)}</div>
-      <div class="pl-info">
-        <div class="pl-name-row"><span class="pl-name">${l.name}</span><span class="pl-time">${last?last.time:""}</span></div>
-        <div class="pl-last">${lastPrefix}${last?escapeHtml(last.text):""}</div>
-      </div>
-      ${l.unread ? '<div class="pl-unread"></div>' : ''}
-    `;
-    div.addEventListener('click', ()=>{
-      activeLeadId = l.id;
-      l.unread = false;
-      saveDB();
-      renderPipelineList();
-      renderPipelineChat();
-    });
-    wrap.appendChild(div);
-  });
-}
-
-function renderPipelineChat(){
-  const s = t();
-  const area = document.getElementById('pipelineChat');
-  if(!area) return;
-  const l = leads.find(x=>x.id===activeLeadId);
-  if(!l){
-    area.innerHTML = `<div class="chat-empty">${s.selectContact}</div>`;
-    return;
-  }
-  area.innerHTML = `
-    <div class="chat-header">
-      <div class="row-avatar">${initials(l.name)}</div>
-      <div style="flex:1;">
-        <div class="cname">${l.name}</div>
-        <div class="csub">${l.phone} · ${l.email} · ${industryName(l)}</div>
-      </div>
-      <span class="status-badge status-${l.status}">${statusLabel(l.status)}</span>
-    </div>
-    <div class="chat-messages" id="chatMessages"></div>
-    <div class="chat-input-row">
-      <textarea id="chatInput" placeholder="${s.chatPh(l.name)}"></textarea>
-      <button class="btn btn-primary" id="chatSendBtn">${s.send}</button>
-    </div>
-  `;
-  const msgWrap = document.getElementById('chatMessages');
-  l.messages.forEach((m, idx)=>{
-    const outer = document.createElement('div');
-    outer.className = "msg-wrap " + m.dir;
-    const bubble = document.createElement('div');
-    bubble.className = "msg " + m.dir;
-    bubble.innerHTML = escapeHtml(m.text) + `<div class="meta">${m.time}</div>`;
-    outer.appendChild(bubble);
-    if(m.dir === 'in'){
-      if(m.translation){
-        const tr = document.createElement('div');
-        tr.className = "translation";
-        tr.textContent = "中文：" + m.translation;
-        outer.appendChild(tr);
-      } else {
-        const trBtn = document.createElement('button');
-        trBtn.className = "btn-mini";
-        trBtn.textContent = s.translateBtn;
-        trBtn.addEventListener('click', ()=>translateMessage(l.id, idx, trBtn));
-        outer.appendChild(trBtn);
-      }
-    }
-    msgWrap.appendChild(outer);
-  });
-  msgWrap.scrollTop = msgWrap.scrollHeight;
-
-  document.getElementById('chatSendBtn').addEventListener('click', ()=>sendIndividual(l.id));
-  document.getElementById('chatInput').addEventListener('keydown', (e)=>{
-    if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendIndividual(l.id); }
-  });
-}
-
-/* =========================================================
-   Page: Qualified (final screening)
-   ========================================================= */
-let qualifiedFilter = "all";
-function renderQualified(){
-  const s = t();
-  const pool = leads.filter(l=>l.status!=="new");
-  if(pool.length===0){
-    return `<div class="page-inner"><div class="page-head"><div><div class="page-title">${s.qualifiedTitle}</div><div class="page-sub">${s.qualifiedSub}</div></div></div>
-      <div class="empty-state"><div class="title">${s.emptyQualifiedTitle}</div><div class="body">${s.emptyQualifiedBody}</div></div></div>`;
-  }
-  const filtered = pool.filter(l=>{
-    if(qualifiedFilter==="all") return true;
-    return l.status===qualifiedFilter;
-  }).sort((a,b)=>b.score-a.score);
-
-  return `
-    <div class="page-inner">
-      <div class="page-head">
-        <div><div class="page-title">${s.qualifiedTitle}</div><div class="page-sub">${s.qualifiedSub}</div></div>
-      </div>
-      <div class="toolbar">
-        <select id="qualifiedFilterSel">
-          <option value="all" ${qualifiedFilter==="all"?"selected":""}>${s.filterAll}</option>
-          <option value="in_progress" ${qualifiedFilter==="in_progress"?"selected":""}>${s.filterInProgress}</option>
-          <option value="qualified" ${qualifiedFilter==="qualified"?"selected":""}>${s.filterQualified}</option>
-          <option value="disqualified" ${qualifiedFilter==="disqualified"?"selected":""}>${s.filterDisqualified}</option>
-        </select>
-      </div>
+    ${pool.length===0 ? `
+      <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
+    ` : `
       <table class="data-table">
         <thead>
           <tr>
-            <th>${s.nameCol}</th>
-            <th>${s.industryCol}</th>
-            <th>${s.topicCol}</th>
-            <th>${s.scoreCol}</th>
-            <th>${s.statusCol}</th>
-            <th>${s.actionsCol}</th>
+            <th style="width:30px;"></th>
+            <th style="width:60px;">Hosted</th>
+            <th>Lead</th>
+            <th>Direction</th>
+            <th>Last message</th>
+            <th>Status</th>
+            <th>Score</th>
           </tr>
         </thead>
         <tbody>
-          ${filtered.map(l => `
-            <tr>
-              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}</div></td>
-              <td>${industryName(l)}</td>
-              <td><span class="topic-pill">${topicLabel(l.topic)}</span></td>
+          ${pool.map(l => {
+            const last = l.messages[l.messages.length-1];
+            const awaitingReply = needsReply(l);
+            return `
+            <tr class="row-clickable ${l.id===activeLeadId?'row-selected':''}" data-open="${l.id}">
+              <td><input type="checkbox" data-id="${l.id}" class="row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
+              <td style="text-align:center;"><input type="checkbox" data-hosted-id="${l.id}" class="hosted-cb" ${l.hosted?"checked":""} title="Add/remove from hosted list"></td>
+              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}${l.hosted ? ' <span style="color:#8f9dff;" title="In hosted list">●</span>' : ''}</div></td>
+              <td><span class="topic-pill">${topicById(l.topic).en}</span></td>
+              <td>
+                <div class="msg-preview">
+                  <span class="dir-tag">${last ? (last.dir==='out'?'SENT ':'REPLY ') : ''}</span>${last?escapeHtml(last.text):''}
+                </div>
+              </td>
+              <td>${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : (awaitingReply ? '<span class="status-badge status-awaiting">Awaiting reply</span>' : `<span class="status-badge status-${l.status}">${l.status}</span>`)}</td>
               <td>
                 <div class="score-row">
                   <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${l.score}%; background:${scoreColor(l.score)};"></div></div>
                   <span class="score-num">${l.score}</span>
                 </div>
               </td>
-              <td><span class="status-badge status-${l.status}">${statusLabel(l.status)}</span></td>
-              <td>
-                <button class="btn btn-sm btn-green-ghost" data-qualify="${l.id}">${s.markQualified}</button>
-                <button class="btn btn-sm btn-danger-ghost" data-disqualify="${l.id}" style="margin-left:6px;">${s.markDisqualified}</button>
-              </td>
             </tr>
-          `).join("")}
+          `}).join("")}
         </tbody>
       </table>
-    </div>
+    `}
   `;
+
+  document.getElementById('hostedToggle')?.addEventListener('change', (e)=>{
+    setHosted(e.target.checked);
+  });
+  document.getElementById('addHostedBtn')?.addEventListener('click', ()=>{
+    addToHosted([...selectedIds]);
+  });
+  document.getElementById('removeHostedBtn')?.addEventListener('click', ()=>{
+    removeFromHosted([...selectedIds]);
+  });
+  document.getElementById('statusFilterSel').addEventListener('change', (e)=>{ statusFilter = e.target.value; renderLeft(); });
+  document.getElementById('topicFilterSel').addEventListener('change', (e)=>{ topicFilter = e.target.value; renderLeft(); });
+  document.getElementById('selectAllBtn').addEventListener('click', ()=>{ pool.forEach(l=>selectedIds.add(l.id)); renderLeft(); });
+  document.getElementById('clearSelBtn').addEventListener('click', ()=>{ selectedIds.clear(); renderLeft(); });
+  document.getElementById('bulkReplyBtn').addEventListener('click', startBulkQueue);
+  document.getElementById('clearFinishedBtn')?.addEventListener('click', clearFinishedQueueItems);
+  document.getElementById('cancelQueueBtn')?.addEventListener('click', clearQueue);
+  document.querySelectorAll('[data-bump]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>bumpQueueItem(e.target.getAttribute('data-bump')));
+  });
+  document.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>removeQueueItem(e.target.getAttribute('data-remove')));
+  });
+  document.querySelectorAll('[data-retry]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>retryQueueItem(e.target.getAttribute('data-retry')));
+  });
+  document.getElementById('speedModeSel')?.addEventListener('change', (e)=>{
+    speedMode = e.target.value;
+    renderLeft();
+  });
+  document.querySelectorAll('.row-cb').forEach(cb=>{
+    cb.addEventListener('click', (e)=>e.stopPropagation());
+    cb.addEventListener('change', (e)=>{
+      const id = e.target.getAttribute('data-id');
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      renderLeft();
+    });
+  });
+  document.querySelectorAll('.hosted-cb').forEach(cb=>{
+    cb.addEventListener('click', (e)=>e.stopPropagation());
+    cb.addEventListener('change', (e)=>{
+      const id = e.target.getAttribute('data-hosted-id');
+      const l = leads.find(x=>x.id===id);
+      if(l){
+        l.hosted = e.target.checked;
+        saveDB();
+        if(l.hosted && hostedEnabled) hostedTick(); // pick it up right away instead of waiting for the next tick
+      }
+      renderLeft();
+    });
+  });
+  document.querySelectorAll('[data-open]').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      activeLeadId = row.getAttribute('data-open');
+      renderLeft();
+      renderRight();
+    });
+  });
 }
 
 /* =========================================================
-   Message + AI simulation logic
+   Right pane: thread detail
    ========================================================= */
-function appendMessage(lead, dir, text){
-  lead.messages.push({dir, text, time: timeNow(), ts: Date.now(), translation: null});
-  if(dir==='in' && lead.id!==activeLeadId) lead.unread = true;
-  saveDB();
+function renderRight(){
+  const wrap = document.getElementById('rightPane');
+  const l = leads.find(x=>x.id===activeLeadId);
+  if(!l){
+    wrap.innerHTML = `<div class="thread-empty">Click a lead on the left to review the full conversation</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="thread-header">
+      <div class="thread-name">${l.name}</div>
+      <div class="thread-sub">${l.phone} · ${l.email}</div>
+      <div class="thread-sub">${industriesEn[l.industryIdx]} · ${l.lang.toUpperCase()}</div>
+      <div class="thread-meta-row">
+        <span class="topic-pill">${topicById(l.topic).en}</span>
+        <span class="status-badge status-${l.status}">${l.status}</span>
+        ${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : ""}
+        <button class="btn-mini" id="toggleHostedBtn" style="${l.hosted?'color:#8f9dff; border-color:#3a3fb0;':''}">${l.hosted ? "In hosted list — remove" : "Add to hosted list"}</button>
+      </div>
+    </div>
+    <div class="thread-messages" id="threadMessages"></div>
+
+    <div class="side-block">
+      <div class="field-label">AI reply direction (used only if you choose "AI replies" below)</div>
+      <select class="side-select" id="dirSelect">
+        ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${l.topic===tp.id?"selected":""}>${tp.en}</option>`).join("")}
+      </select>
+      <div class="field-label">Custom instruction (optional)</div>
+      <textarea class="side-input" id="customDirInput" placeholder="e.g. Push back twice on price before agreeing">${escapeHtml(l.customDirection || "")}</textarea>
+      <button class="btn btn-mini" id="saveDirBtn" style="margin-top:8px;">Save direction</button>
+    </div>
+
+    <div class="side-block">
+      <div class="field-label" style="font-size:11.5px; color:var(--text);">Who replies for this lead?</div>
+
+      <div style="margin-top:10px;">
+        <div class="field-label" style="margin:0 0 6px;">Option A — AI replies, following the direction above</div>
+        <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) ? "" : "disabled"}>Generate AI reply${isPaused(l) ? " (override pause)" : ""}</button>
+        <span class="toolbar-label" id="threadReplyStatus"></span>
+        <div class="typing-hint">
+          Priority lane — under a few seconds, not the long bulk delay. Always fires right away, even if the queue is busy elsewhere; if this lead is sitting in the queue below, it's pulled out first so it isn't answered twice.
+          ${isPaused(l) ? `<br><span style="color:#e3a86a;">This lead said they'd be away until ${formatClock(l.pausedUntil)} — clicking generates a reply anyway.</span>` : ""}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="field-label" style="margin:0 0 6px;">Option B — you write the customer's reply yourself (instant, no AI, no queue)</div>
+        <textarea class="side-input" id="manualReplyInput" placeholder="Type what this lead says back..."></textarea>
+        <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as the customer</button>
+      </div>
+    </div>
+  `;
+  const msgWrap = document.getElementById('threadMessages');
+  l.messages.forEach(m=>{
+    const outer = document.createElement('div');
+    outer.className = "msg-wrap " + m.dir;
+    const bubble = document.createElement('div');
+    bubble.className = "msg " + m.dir;
+    bubble.innerHTML = escapeHtml(m.text) + `<div class="meta">${m.time}</div>`;
+    outer.appendChild(bubble);
+    msgWrap.appendChild(outer);
+  });
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+
+  document.getElementById('saveDirBtn').addEventListener('click', ()=>{
+    l.topic = document.getElementById('dirSelect').value;
+    l.customDirection = document.getElementById('customDirInput').value.trim();
+    saveDB();
+    showToast("Direction saved");
+    renderLeft();
+  });
+
+  document.getElementById('toggleHostedBtn').addEventListener('click', ()=>{
+    l.hosted = !l.hosted;
+    saveDB();
+    renderLeft();
+    renderRight();
+  });
+
+  document.getElementById('manualReplyBtn').addEventListener('click', ()=>{
+    // This is YOU dictating what the customer says back — completes the
+    // exchange immediately. Pull it out of the queue first if it's sitting
+    // there, so the AI doesn't also try to answer for the same turn.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
+    const input = document.getElementById('manualReplyInput');
+    const text = input.value.trim();
+    if(!text) return;
+    const d = new Date();
+    l.messages.push({dir:'in', text, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation:null});
+    input.value = "";
+    saveDB();
+    renderLeft();
+    renderRight();
+  });
+
+  document.getElementById('threadReplyBtn')?.addEventListener('click', async ()=>{
+    // If this lead is also sitting in the bulk queue (waiting or already being
+    // generated there), pull it out first so it isn't answered twice — this
+    // manual click takes over and handles it right now instead.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
+
+    renderLeft();
+    const btn = document.getElementById('threadReplyBtn');
+    const status = document.getElementById('threadReplyStatus');
+    if(btn) btn.disabled = true;
+    if(status) status.textContent = "Typing...";
+    await generateReply(l.id, true, undefined, true); // priority = fast, live-chat pacing
+    renderLeft();
+    renderRight();
+  });
 }
 
-function sendIndividual(id){
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
-  if(!text) return;
+/* =========================================================
+   AI reply generation (manual trigger only, batched from admin)
+   ========================================================= */
+function wait(ms, signal){
+  return new Promise((resolve, reject)=>{
+    const t = setTimeout(resolve, ms);
+    if(signal){
+      if(signal.aborted){ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); return; }
+      signal.addEventListener('abort', ()=>{ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); }, {once:true});
+    }
+  });
+}
+
+// Simulated human response pacing — never instant. In "realistic" mode it
+// varies a lot between leads (some reply fast, some take a while). In "bulk"
+// mode it's short and tight so hundreds of leads don't take forever, while
+// still not landing at the exact same millisecond as sibling replies.
+function humanReplyDelay(text, priority){
+  if(priority){
+    // You're actively watching this thread — still not instant, but snappy.
+    const thinking = 600 + Math.random()*1800; // 0.6s - 2.4s
+    const typing = Math.min((text.length || 20) * 15, 1500);
+    return Math.round(thinking + typing);
+  }
+  if(speedMode === "bulk"){
+    const thinking = 400 + Math.random()*1600; // 0.4s - 2s
+    const typing = Math.min((text.length || 20) * 8, 1200);
+    return Math.round(thinking + typing);
+  }
+  const roll = Math.random();
+  let thinking;
+  if(roll < 0.45){
+    thinking = 2000 + Math.random()*4000;       // fast responder: 2s - 6s
+  } else if(roll < 0.8){
+    thinking = 6000 + Math.random()*10000;      // average: 6s - 16s
+  } else {
+    thinking = 16000 + Math.random()*30000;     // slow responder: 16s - 46s
+  }
+  const typing = Math.min((text.length || 20) * 45, 6000); // rough typing-speed simulation, capped
+  return Math.round(thinking + typing);
+}
+
+function showTypingIndicator(leadName){
+  const msgWrap = document.getElementById('threadMessages');
+  if(!msgWrap) return null;
+  const typingDiv = document.createElement('div');
+  typingDiv.className = "msg-wrap in";
+  typingDiv.innerHTML = `<div class="msg in" style="font-style:italic; color:var(--text-faint);">${leadName} is typing...</div>`;
+  msgWrap.appendChild(typingDiv);
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+  return typingDiv;
+}
+
+async function generateReply(id, showTyping, signal, priority){
   const l = leads.find(x=>x.id===id);
-  appendMessage(l, 'out', text);
-  input.value = "";
-  renderPipelineList();
-  renderPipelineChat();
-}
+  if(!l){
+    console.error("generateReply: lead not found, id=", id);
+    return false;
+  }
 
-async function translateMessage(leadId, msgIdx, btnEl){
-  const l = leads.find(x=>x.id===leadId);
-  const m = l.messages[msgIdx];
-  if(!m) return;
-  btnEl.disabled = true;
-  btnEl.textContent = t().translating;
+  activeGenerations++;
+  let success = false;
+  try{
+
+  const history = l.messages.slice(-8).map(m => (m.dir==='out' ? "Sales: " : "Customer: ") + m.text).join("\n");
+  const languageName = l.lang === 'fr' ? "French" : "English";
+  const topic = topicById(l.topic);
+  const customLine = l.customDirection ? `\nAdditional guidance from the operator: ${l.customDirection}` : "";
+
+  // After enough back-and-forth, real people don't stay glued to a text thread —
+  // have this reply be a natural excuse to step away, then pause the lead for a
+  // couple of real-world hours before it's eligible to reply again.
+  const messagesSincePause = l.messages.length - (l.lastPauseMessageCount || 0);
+  const shouldWrapUp = messagesSincePause >= (l.pauseThreshold || 10);
+
+  const wrapUpLine = shouldWrapUp
+    ? `\nThis is also the moment to naturally end this conversation for now — after your reply, before anything else feels resolved. Give a brief, casual, in-character excuse for needing to step away (busy with work, heading into something, will check back later — whatever fits the persona). Do NOT mention a specific time or promise an exact return. Keep it to one short sentence, same as any other reply.`
+    : "";
+
+  const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
+Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}. Speech style: ${getSpeechStyle(l)}.
+
+Write in this specific person's voice, not a generic "helpful customer" template. Let the speech style above genuinely shape word choice, sentence length, and punctuation. Avoid stock customer-service-sounding phrases like "Sounds good!", "Thanks for reaching out", "I appreciate that", "That makes sense" — real texters rarely talk like that. Vary your sentence structure between replies instead of settling into a pattern.
+
+Above all, react naturally and proportionally to what the salesperson's most recent message actually says. Match its length, tone, and topic:
+- If it's just a greeting ("hi", "hello there") or something short and generic, reply with an equally short, casual greeting of your own. Do NOT bring up pricing, products, objections, or any business topic unprompted.
+- If it asks a direct question, answer that specific question.
+- Never jump ahead to a topic the salesperson hasn't actually raised yet.
+
+Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}${wrapUpLine}
+
+Reply ONLY in ${languageName}, in 1-2 sentences matching the persona and speech style above, proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
+After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy). A single greeting exchange should score low (near 0) — only raise the score once real interest or business discussion actually happens.`;
+
+  let typingDiv = (showTyping && activeLeadId===id) ? showTypingIndicator(l.name) : null;
+
   try{
     const response = await fetch(API_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal,
       body: JSON.stringify({
         model: "claude-sonnet-5",
-        max_tokens: 200,
-        system: "You are a translation engine. Translate the given customer message into natural, concise Simplified Chinese. Return only the translated text, nothing else.",
-        messages: [ { role: "user", content: m.text } ]
+        max_tokens: 300,
+        temperature: 1.05,
+        system: systemPrompt,
+        messages: [ { role: "user", content: `Recent conversation:\n${history}\n\nWrite the customer's next reply, then the JSON score line.` } ]
       })
     });
     const data = await response.json();
+
     if(!response.ok){
       const apiErrMsg = data?.error?.message || `HTTP ${response.status}`;
       throw new Error(apiErrMsg);
     }
-    const block = (data.content || []).find(b => b.type === 'text');
-    m.translation = block ? block.text.trim() : "（翻译失败）";
+
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    const raw = textBlock ? textBlock.text.trim() : "";
+
+    let replyText = raw;
+    let score = l.score;
+    const jsonMatch = raw.match(/\{[^{}]*"score"[^{}]*\}/);
+    if(jsonMatch){
+      replyText = raw.slice(0, jsonMatch.index).trim();
+      try{
+        const parsed = JSON.parse(jsonMatch[0]);
+        if(typeof parsed.score === 'number') score = Math.max(0, Math.min(100, Math.round(parsed.score)));
+      }catch(e){}
+    }
+    if(!replyText) replyText = "(no reply)";
+
+    // Pace the reply like a real person — wait before it actually lands, keep the
+    // typing indicator up (or start one now if this lead just became active).
+    if(!typingDiv && activeLeadId===id) typingDiv = showTypingIndicator(l.name);
+    await wait(humanReplyDelay(replyText, priority), signal);
+
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
+
+    // Re-fetch the live lead object right before mutating — if the leads
+    // array got reloaded (e.g. a refresh happened) while we were waiting,
+    // this makes sure the message lands on the object that actually gets
+    // saved, instead of an orphaned copy whose changes would be lost.
+    const live = leads.find(x=>x.id===id) || l;
+    const d = new Date();
+    live.messages.push({dir:'in', text: replyText, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+    live.score = score;
+    if(!live.manualOverride){
+      live.status = score >= 70 ? "qualified" : "in_progress";
+    }
+
+    if(shouldWrapUp){
+      const pauseHours = 2 + Math.random(); // 2-3 real hours
+      live.pausedUntil = Date.now() + pauseHours * 3600 * 1000;
+      live.lastPauseMessageCount = live.messages.length;
+      live.pauseThreshold = 9 + Math.floor(Math.random()*5); // 9-13 for the next stretch
+    }
+    success = true;
   }catch(err){
-    m.translation = "（翻译请求失败：" + (err.message || "未知错误") + "）";
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
+    if(err && err.name === 'AbortError'){
+      // Deliberately cancelled from the queue — say nothing, leave the
+      // conversation exactly as it was before this attempt.
+    } else {
+      const live = leads.find(x=>x.id===id) || l;
+      const d = new Date();
+      live.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+      success = true; // an error message was recorded, so it's visible — not a silent no-op
+    }
   }
   saveDB();
-  renderPipelineChat();
+
+  } finally {
+    activeGenerations--;
+  }
+  return success;
 }
 
-/* =========================================================
-   Page render dispatch
-   ========================================================= */
-function renderPage(){
-  const root = document.getElementById('pageRoot');
-  let html = "";
-  if(currentPage==="overview") html = renderOverview();
-  else if(currentPage==="import") html = renderImport();
-  else if(currentPage==="admin") html = renderAdmin();
-  else if(currentPage==="outreach") html = renderOutreach();
-  else if(currentPage==="pipeline") html = renderPipeline();
-  else if(currentPage==="qualified") html = renderQualified();
-  root.innerHTML = html;
-  wirePageEvents();
-}
 
-function wirePageEvents(){
-  if(currentPage==="overview"){
-    document.getElementById('exportDataBtn')?.addEventListener('click', exportBackup);
-    document.getElementById('importDataBtn')?.addEventListener('click', ()=>document.getElementById('importDataFile')?.click());
-    document.getElementById('importDataFile')?.addEventListener('change', e=>{ const f=e.target.files?.[0]; if(f) importBackup(f); });
-  }
-  if(currentPage==="import"){
-    document.getElementById('importBtn')?.addEventListener('click', ()=>{
-      const n = Math.max(1, Math.min(2000, parseInt(document.getElementById('importCount').value, 10) || 50));
-      const batch = genLeadBatch(n);
-      leads = leads.concat(batch);
-      saveDB();
-      showToast(t().importedToast(n));
-      renderPage();
-    });
-  }
+// Manual bulk trigger — builds a visible, editable queue instead of firing
+// blindly. Every eligible lead you selected goes into the queue, no sampling,
+// nothing left out. This is the only thing that ever generates a reply —
+// what you check is exactly what runs, fully visible and editable (reorder /
+// remove, even mid-flight) below.
+function startBulkQueue(){
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const fullSelection = leads.filter(l=>selectedIds.has(l.id));
+  const pausedCount = fullSelection.filter(isPaused).length;
+  const alreadyQueuedCount = fullSelection.filter(l=>queuedIds.has(l.id)).length;
+  const eligible = fullSelection.filter(l=>!isPaused(l) && !queuedIds.has(l.id));
+  if(eligible.length===0){ selectedIds.clear(); renderLeft(); return; }
 
-  if(currentPage==="admin"){
-    document.querySelectorAll('.admin-row-cb').forEach(cb=>{
-      cb.addEventListener('change', (e)=>{
-        const id = e.target.getAttribute('data-id');
-        if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
-        renderPage();
-      });
-    });
-    document.getElementById('adminSelectAll')?.addEventListener('click', ()=>{
-      leads.forEach(l=>selectedIds.add(l.id));
-      renderPage();
-    });
-    document.getElementById('adminClearSel')?.addEventListener('click', ()=>{
-      selectedIds.clear();
-      renderPage();
-    });
-    document.getElementById('applyTopicBtn')?.addEventListener('click', ()=>{
-      const topicId = document.getElementById('bulkTopicSelect').value;
-      leads.forEach(l=>{ if(selectedIds.has(l.id)) l.topic = topicId; });
-      saveDB();
-      selectedIds.clear();
-      renderPage();
-    });
-  }
-
-  if(currentPage==="outreach"){
-    document.querySelectorAll('.outreach-row-cb').forEach(cb=>{
-      cb.addEventListener('change', (e)=>{
-        const id = e.target.getAttribute('data-id');
-        if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
-        renderPage();
-      });
-    });
-    document.getElementById('outreachSelectAll')?.addEventListener('click', ()=>{
-      leads.filter(l=>l.status==="new").forEach(l=>selectedIds.add(l.id));
-      renderPage();
-    });
-    document.getElementById('outreachClearSel')?.addEventListener('click', ()=>{
-      selectedIds.clear();
-      renderPage();
-    });
-    document.getElementById('outreachSendBtn')?.addEventListener('click', sendOutreach);
-  }
-
-  if(currentPage==="pipeline"){
-    renderPipelineList();
-    renderPipelineChat();
-    document.getElementById('pipelineSearch')?.addEventListener('input', renderPipelineList);
-  }
-
-  if(currentPage==="qualified"){
-    document.getElementById('qualifiedFilterSel')?.addEventListener('change', (e)=>{
-      qualifiedFilter = e.target.value;
-      renderPage();
-    });
-    document.querySelectorAll('[data-qualify]').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = e.target.getAttribute('data-qualify');
-        const l = leads.find(x=>x.id===id);
-        l.status = "qualified"; l.manualOverride = true;
-        saveDB();
-        renderPage();
-      });
-    });
-    document.querySelectorAll('[data-disqualify]').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = e.target.getAttribute('data-disqualify');
-        const l = leads.find(x=>x.id===id);
-        l.status = "disqualified"; l.manualOverride = true;
-        saveDB();
-        renderPage();
-      });
-    });
-  }
-}
-
-function exportBackup(){
-  const payload = {version:2, exportedAt:new Date().toISOString(), leads};
-  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=`meridian-backup-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  showToast(uiLang==='zh' ? '备份已导出' : 'Backup exported');
-}
-async function importBackup(file){
-  try{
-    const parsed = JSON.parse(await file.text());
-    const incoming = Array.isArray(parsed) ? parsed : parsed.leads;
-    if(!Array.isArray(incoming)) throw new Error('Invalid backup');
-    if(!confirm(uiLang==='zh' ? `导入将替换当前 ${leads.length} 条模拟数据，继续吗？` : `Import will replace the current ${leads.length} simulated leads. Continue?`)) return;
-    leads = incoming; saveDB(); selectedIds.clear(); activeLeadId=null; renderAll();
-    showToast(uiLang==='zh' ? `已导入 ${leads.length} 条数据` : `Imported ${leads.length} leads`);
-  }catch(e){ showToast(uiLang==='zh' ? '备份文件无效' : 'Invalid backup file'); }
-}
-
-function sendOutreach(){
-  const s = t();
-  const text = document.getElementById('outreachText').value.trim();
-  const targets = leads.filter(l=>l.status==="new" && selectedIds.has(l.id));
-  if(!text){ showToast(s.noTextToast); return; }
-  if(targets.length===0){ showToast(s.noSelToast); return; }
-
-  targets.forEach(l=>{
-    l.status = "in_progress";
-    appendMessage(l, 'out', text);
-  });
-  saveDB();
+  bulkQueue = bulkQueue.concat(eligible.map(l=>({id: l.id, status: 'waiting', source: 'manual'})));
   selectedIds.clear();
-  showToast(s.sentToast(targets.length));
-  renderPage();
+
+  const notes = [];
+  if(pausedCount>0) notes.push(`${pausedCount} paused, left out`);
+  if(alreadyQueuedCount>0) notes.push(`${alreadyQueuedCount} already in queue`);
+  const noteStr = notes.length ? ` (${notes.join(", ")})` : "";
+  showToast(`Queued all ${eligible.length} selected${noteStr}`);
+
+  advanceQueue();
+  renderLeft();
+}
+
+// Launches as many 'waiting' queue items as the current concurrency cap
+// allows. Called whenever a slot frees up (a generation finishes) so the
+// queue keeps draining on its own.
+function advanceQueue(){
+  let slots = concurrencyCap() - activeGenerations;
+  if(slots <= 0) return;
+  for(const item of bulkQueue){
+    if(slots <= 0) break;
+    if(item.status !== 'waiting') continue;
+    item.status = 'active';
+    slots--;
+    const controller = new AbortController();
+    abortControllers[item.id] = controller;
+    generateReply(item.id, true, controller.signal).then((success)=>{
+      delete abortControllers[item.id];
+      item.status = success ? 'done' : 'failed';
+      renderLeft();
+      if(activeLeadId === item.id) renderRight();
+      advanceQueue();
+    }).catch((err)=>{
+      // Belt and braces — generateReply itself shouldn't throw, but if
+      // something unexpected escapes, never leave the item stuck silently.
+      console.error("Queue item errored unexpectedly:", item.id, err);
+      delete abortControllers[item.id];
+      item.status = 'failed';
+      renderLeft();
+      advanceQueue();
+    });
+  }
+  renderLeft();
+}
+
+// Toggle hosted mode on/off. Scope is only ever leads with l.hosted === true —
+// nothing outside that list is ever touched, no matter how long this runs.
+function setHosted(enabled){
+  hostedEnabled = enabled;
+  if(enabled && !hostedTimer){
+    hostedTimer = setInterval(hostedTick, 3000);
+    hostedTick();
+  } else if(!enabled && hostedTimer){
+    clearInterval(hostedTimer);
+    hostedTimer = null;
+  }
+  renderLeft();
+}
+
+// Every few seconds, check the hosted list for leads that are waiting on a
+// reply and queue them up (same visible queue as manual Run, same pacing,
+// same everything) — but only ever leads with l.hosted === true.
+function hostedTick(){
+  if(!hostedEnabled) return;
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const candidates = leads.filter(l=> l.hosted && needsReply(l) && !isPaused(l) && !queuedIds.has(l.id));
+  if(candidates.length===0) return;
+  bulkQueue = bulkQueue.concat(candidates.map(l=>({id: l.id, status:'waiting'})));
+  advanceQueue();
+  renderLeft();
+}
+
+// Add / remove leads from the hosted list.
+function addToHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = true; });
+  saveDB();
+  renderLeft();
+}
+function removeFromHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = false; });
+  saveDB();
+  renderLeft();
+}
+
+// Move a still-waiting item to the very front of the queue — "cuts in line"
+// ahead of everything else still waiting.
+function bumpQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id && q.status==='waiting');
+  if(idx <= 0) return;
+  const [item] = bulkQueue.splice(idx,1);
+  bulkQueue.unshift(item);
+  renderLeft();
+}
+
+// Remove one item from the queue. If it hasn't started yet it's simply
+// dropped (never replies). If it's already in flight, its request is
+// aborted so it stops without leaving an error message behind.
+function removeQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id);
+  if(idx===-1) return;
+  const item = bulkQueue[idx];
+  if(item.status==='active'){
+    const c = abortControllers[id];
+    if(c) c.abort();
+  }
+  bulkQueue.splice(idx,1);
+  renderLeft();
+}
+
+// Put a failed item back to 'waiting' and let the queue pick it up again.
+function retryQueueItem(id){
+  const item = bulkQueue.find(q=>q.id===id && q.status==='failed');
+  if(!item) return;
+  item.status = 'waiting';
+  advanceQueue();
+  renderLeft();
+}
+
+// Stops everything still waiting and aborts anything in flight.
+function clearQueue(){
+  bulkQueue.forEach(item=>{
+    if(item.status==='active'){
+      const c = abortControllers[item.id];
+      if(c) c.abort();
+    }
+  });
+  bulkQueue = [];
+  renderLeft();
+}
+
+// Drop finished entries out of the visible list, keep waiting/active ones.
+function clearFinishedQueueItems(){
+  bulkQueue = bulkQueue.filter(q=>q.status!=='done');
+  renderLeft();
 }
 
 /* =========================================================
    Boot
    ========================================================= */
-function renderAll(){
-  renderNav();
-  renderPage();
-  document.getElementById('uiLangEn').classList.toggle('active', uiLang==='en');
-  document.getElementById('uiLangZh').classList.toggle('active', uiLang==='zh');
-  document.documentElement.lang = uiLang === 'zh' ? 'zh-CN' : 'en';
+function refresh(){
+  leads = loadDB() || [];
+  const note = document.getElementById('refreshNote');
+  note.textContent = "Loaded " + new Date().toLocaleTimeString();
+  renderLeft();
+  renderRight();
 }
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('resetAllBtn').addEventListener('click', resetAllConversations);
+window.addEventListener('storage', (e)=>{ if(e.key===DB_KEY) refresh(); });
 
-document.getElementById('uiLangEn').addEventListener('click', ()=>{ uiLang='en'; renderAll(); });
-document.getElementById('uiLangZh').addEventListener('click', ()=>{ uiLang='zh'; renderAll(); });
+// Light periodic re-render (no reload from storage) so "paused until" badges
+// flip back to normal on their own once real time catches up, even if
+// nobody's clicking around.
+setInterval(()=>{ renderLeft(); if(activeLeadId) renderRight(); }, 20000);
 
-// Keep in sync with the backend page — if admin.html (or another tab) updates
-// the shared database (e.g. generates a reply), reload it here and re-render
-// so the pipeline/qualified views reflect it without a manual page refresh.
-// Skipped while typing in a text field, so in-progress input never gets wiped.
-function isTypingInField(){
-  const el = document.activeElement;
-  return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT');
-}
-window.addEventListener('storage', (e)=>{
-  if(e.key !== DB_KEY) return;
-  const fresh = loadDB();
-  if(fresh && Array.isArray(fresh)) leads = fresh;
-  if(!isTypingInField()) renderAll();
-});
-// Some browsers don't fire 'storage' reliably across tabs on the same
-// machine — poll as a fallback so updates still show up within a few seconds.
-setInterval(()=>{
-  const fresh = loadDB();
-  if(fresh && Array.isArray(fresh) && JSON.stringify(fresh) !== JSON.stringify(leads)){
-    leads = fresh;
-    if(!isTypingInField()) renderAll();
-  }
-}, 3000);
-
-renderAll();
+refresh();
 </script>
 
 </body>
