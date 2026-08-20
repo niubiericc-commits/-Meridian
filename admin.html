@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meridian — Backend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #0b0d12;
+    --panel: #12151c;
+    --panel2: #171b24;
+    --card: #1b202b;
+    --border: #262c39;
+    --border-soft: #1e2330;
+    --text: #eceef3;
+    --text-dim: #8991a3;
+    --text-faint: #5c6478;
+    --brass: #c9a15a;
+    --brass-dim: #3a3020;
+    --brass-text: #e0bd7f;
+    --blue: #6c93ff;
+    --blue-dim: #1c2540;
+    --green: #6bb894;
+    --green-dim: #16281f;
+    --red: #d8737a;
+    --red-dim: #2c1a1c;
+    --gray-dim: #232838;
+    --radius-lg: 16px;
+    --radius-md: 10px;
+    --radius-sm: 7px;
+    --font-display: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --font-mono: "IBM Plex Mono", monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family: var(--font-sans);
+    background: var(--ink);
+    color: var(--text);
+    height:100vh;
+    overflow:hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app{ display:grid; grid-template-rows: 60px 1fr; height:100vh; }
+
+  .topbar{
+    background: var(--panel); border-bottom:1px solid var(--border-soft);
+    display:flex; align-items:center; padding: 0 22px; gap:16px;
+  }
+  .logo{ display:flex; align-items:center; gap:10px; white-space:nowrap; }
+  .logo .mark{
+    width:26px;height:26px; border-radius:7px;
+    background: linear-gradient(155deg, #7f8cff, #4a4fb0);
+    display:flex;align-items:center;justify-content:center;
+    font-family: var(--font-display); font-weight:600; font-size:14px; color:#0d0f1f;
+  }
+  .logo .wordmark{ font-family: var(--font-display); font-size:17px; font-weight:500; letter-spacing:0.2px; }
+  .badge-backend{
+    font-size:10.5px; letter-spacing:0.3px; text-transform:uppercase; color: var(--text-faint);
+    border:1px solid var(--border); padding:4px 10px; border-radius:20px; white-space:nowrap;
+  }
+  .refresh-note{ margin-left:auto; font-size:11.5px; color: var(--text-faint); font-family: var(--font-mono); }
+  .btn-refresh{
+    background:transparent; border:1px solid var(--border); color:var(--text); border-radius:var(--radius-sm);
+    padding:7px 13px; font-size:12px; font-family: var(--font-sans); cursor:pointer;
+  }
+  .btn-refresh:hover{ background: var(--panel2); }
+
+  .shell{ display:grid; grid-template-columns: 1fr 380px; height:100%; overflow:hidden; }
+  .left{ overflow-y:auto; padding:22px 24px 60px; }
+  .right{ background: var(--panel); border-left:1px solid var(--border-soft); overflow-y:auto; padding:22px 20px 60px; }
+
+  .section-title{ font-family: var(--font-display); font-size:20px; font-weight:500; margin-bottom:4px; }
+  .section-sub{ font-size:12.5px; color:var(--text-faint); margin-bottom:16px; }
+
+  .stat-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:20px; }
+  .stat-card{ background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); padding:14px 16px; }
+  .stat-card .num{ font-family: var(--font-display); font-size:22px; font-weight:500; }
+  .stat-card .lbl{ font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:0.4px; margin-top:3px; }
+
+  .toolbar{ display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .toolbar .sep{ width:1px; height:20px; background: var(--border); }
+  .toolbar-label{ font-size:12px; color: var(--text-faint); }
+  select{
+    background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:7px 10px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none;
+  }
+  select:focus{ border-color: #7f8cff; }
+  input[type=checkbox]{ accent-color: #7f8cff; cursor:pointer; }
+  input[type=text]{
+    background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:8px 11px; border-radius:var(--radius-sm); font-size:13px; font-family: var(--font-sans); outline:none;
+  }
+  input[type=text]:focus{ border-color: #7f8cff; }
+
+  .btn{ border:none; border-radius:var(--radius-sm); padding:9px 15px; font-size:12.5px; font-weight:600; font-family: var(--font-sans); cursor:pointer; white-space:nowrap; transition: filter 0.15s, background 0.15s; }
+  .btn-primary{ background: #7f8cff; color:#0d0f1f; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ opacity:0.35; cursor:not-allowed; }
+  .btn-mini{ background:transparent; border:1px solid var(--border); color: var(--text-dim); font-size:11px; padding:4px 10px; border-radius:6px; cursor:pointer; }
+  .btn-mini:hover{ background: var(--panel2); }
+  .btn-danger{ background:transparent; border:1px solid #4a2226; color: var(--red); }
+  .btn-danger:hover{ background: var(--red-dim); }
+  .btn-block{ width:100%; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .field-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color: var(--text-faint); margin: 14px 0 6px; }
+  .field-label:first-child{ margin-top:0; }
+  textarea.side-input{
+    width:100%; resize:none; background: var(--card); border:1px solid var(--border); color:var(--text);
+    padding:9px 11px; border-radius:var(--radius-sm); font-size:12.5px; font-family: var(--font-sans); outline:none; height:56px;
+  }
+  textarea.side-input:focus{ border-color: #7f8cff; }
+  textarea.side-input::placeholder{ color: var(--text-faint); }
+  select.side-select{ width:100%; }
+  .side-block{ border-top:1px solid var(--border-soft); padding-top:14px; margin-top:16px; }
+  .side-block:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .typing-hint{ font-size:11px; color: var(--text-faint); font-style:italic; margin-top:6px; }
+
+  .data-table{ width:100%; border-collapse:collapse; background: var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius-md); overflow:hidden; }
+  .data-table th{
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:0.4px; color: var(--text-faint);
+    font-weight:500; padding:10px 12px; border-bottom:1px solid var(--border-soft); background: var(--panel2);
+  }
+  .data-table td{ padding:11px 12px; font-size:12.5px; border-bottom:1px solid var(--border-soft); vertical-align:top; }
+  .data-table tr:last-child td{ border-bottom:none; }
+  .data-table tr.row-clickable{ cursor:pointer; transition: background 0.12s; }
+  .data-table tr.row-clickable:hover td{ background: var(--panel2); }
+  .data-table tr.row-selected td{ background: rgba(127,140,255,0.06); }
+  .name-cell{ display:flex; align-items:center; gap:9px; }
+  .row-avatar{
+    width:28px;height:28px;border-radius:50%; background: var(--brass-dim); color: var(--brass-text);
+    display:flex;align-items:center;justify-content:center; font-family: var(--font-display); font-size:11.5px; font-weight:500; flex-shrink:0;
+  }
+  .mono{ font-family: var(--font-mono); font-size:11.5px; color:var(--text-dim); }
+  .msg-preview{ color: var(--text-dim); max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .msg-preview .dir-tag{ font-size:9.5px; color: var(--text-faint); margin-right:5px; }
+  .status-badge{ font-size:10px; padding:3px 8px; border-radius:20px; font-weight:500; letter-spacing:0.2px; white-space:nowrap; }
+  .status-new{ color: var(--text-dim); background: var(--gray-dim); }
+  .status-in_progress{ color:#8fabf0; background: var(--blue-dim); }
+  .status-qualified{ color: var(--green); background: var(--green-dim); }
+  .status-disqualified{ color: var(--red); background: var(--red-dim); }
+  .status-awaiting{ color:#e3a86a; background: rgba(227,168,106,0.08); }
+  .status-paused{ color:#8fa3b8; background: rgba(143,163,184,0.1); }
+  .topic-pill{ font-size:10px; padding:2px 7px; border-radius:20px; border:1px solid #3a2a5a; color:#c99bff; background: rgba(201,155,255,0.06); white-space:nowrap; }
+  .score-row{ display:flex; align-items:center; gap:6px; }
+  .score-bar-wrap{ width:50px; height:5px; border-radius:4px; background: var(--gray-dim); overflow:hidden; }
+  .score-bar-fill{ height:100%; border-radius:4px; }
+  .score-num{ font-family: var(--font-mono); font-size:11px; color: var(--text-dim); width:20px; text-align:right; }
+
+  .empty-state{ text-align:center; padding:50px 20px; color: var(--text-faint); }
+  .empty-state .title{ font-family: var(--font-display); font-size:15px; color: var(--text); margin-bottom:5px; }
+  .empty-state .body{ font-size:12.5px; max-width:320px; margin:0 auto; line-height:1.6; }
+
+  .thread-empty{ display:flex; align-items:center; justify-content:center; height:100%; color: var(--text-faint); font-size:13px; font-family: var(--font-display); text-align:center; padding:0 20px; }
+  .thread-header{ padding-bottom:14px; border-bottom:1px solid var(--border-soft); margin-bottom:14px; }
+  .thread-name{ font-family: var(--font-display); font-size:17px; font-weight:500; }
+  .thread-sub{ font-size:11.5px; color:var(--text-faint); margin-top:3px; font-family: var(--font-mono); }
+  .thread-meta-row{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+
+  .thread-messages{ display:flex; flex-direction:column; gap:10px; margin-bottom:18px; }
+  .msg-wrap{ max-width:88%; display:flex; flex-direction:column; }
+  .msg-wrap.out{ align-self:flex-end; align-items:flex-end; }
+  .msg-wrap.in{ align-self:flex-start; align-items:flex-start; }
+  .msg{ padding:8px 12px; border-radius:12px; font-size:12.5px; line-height:1.5; }
+  .msg.out{ background: var(--brass); color:#171106; border-bottom-right-radius:3px; }
+  .msg.in{ background: var(--card); border:1px solid var(--border); border-bottom-left-radius:3px; }
+  .msg .meta{ font-size:9.5px; opacity:0.65; margin-top:4px; font-family: var(--font-mono); }
+
+  .side-actions{ display:flex; flex-direction:column; gap:8px; }
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translateX(-50%);
+    background: var(--card); border:1px solid var(--border); padding:10px 18px; border-radius:var(--radius-md);
+    font-size:12.5px; color:var(--text); opacity:0; transition:opacity 0.25s; pointer-events:none; z-index:50;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .toast.show{ opacity:1; }
+
+  ::-webkit-scrollbar{ width:9px; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:5px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  @media (max-width: 860px){
+    body{overflow:auto}.app{height:auto;min-height:100vh}.topbar{height:auto;min-height:60px;padding:10px 12px;flex-wrap:wrap}.shell{grid-template-columns:1fr;height:auto}.left{border-right:0;border-bottom:1px solid var(--border);max-height:48vh}.right{min-height:52vh}.wordmark{font-size:14px}.refresh-note{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="topbar">
+    <div class="logo"><div class="mark">M</div><div class="wordmark">Meridian backend</div></div>
+    <span class="badge-backend">Simulation · reply control</span>
+    <span class="refresh-note" id="refreshNote"></span>
+    <button class="btn-refresh" id="refreshBtn">Refresh</button>
+    <button class="btn-refresh" id="resetAllBtn" style="color: var(--red); border-color:#4a2226;">Reset all conversations</button>
+  </div>
+  <div class="shell">
+    <div class="left" id="leftPane"></div>
+    <div class="right" id="rightPane"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   Config — point this at your own Cloudflare Worker proxy.
+   Calling api.anthropic.com directly from a deployed static
+   page will always fail (no key, CORS). See worker.js.
+   ========================================================= */
+const API_ENDPOINT = "https://meridian-proxy.niubiericc.workers.dev"; // <-- replace with your deployed worker URL
+
+/* =========================================================
+   Shared constants (kept in sync with index.html)
+   ========================================================= */
+const TOPIC_DIRECTIONS = [
+  {id:"price",     en:"Price & incentives",   prompt:"Steer the conversation toward pricing, discounts, bundles, and limited-time offers. Ask about cost and try to negotiate."},
+  {id:"trust",     en:"Trust & credibility",  prompt:"Focus on trust: ask about credentials, guarantees, other customers, and reviews before committing to anything."},
+  {id:"urgency",   en:"Urgency & scarcity",   prompt:"Respond with a sense of urgency or worry about missing out, ask about deadlines and limited availability."},
+  {id:"education", en:"Product education",   prompt:"Ask detailed, curious questions about how the product or service actually works and what it includes."},
+  {id:"rapport",   en:"Casual rapport",       prompt:"Keep the tone casual and friendly, small talk before getting into business specifics."},
+  {id:"objection", en:"Objection practice",   prompt:"Raise realistic objections and hesitations (too expensive, bad timing, already using something else) for the salesperson to handle."}
+];
+function topicById(id){ return TOPIC_DIRECTIONS.find(x=>x.id===id) || TOPIC_DIRECTIONS[4]; }
+
+const industriesEn = ["Education & training","Beauty & skincare","Personal fitness","Home renovation","Cross-border e-commerce","Kids' English tutoring","Insurance & finance","Auto sales","Local dining","Career coaching"];
+const speechStylesFallback = [
+  "keeps replies very short and clipped, rarely more than a few words",
+  "writes in complete, slightly formal sentences with proper punctuation",
+  "casual texter — lowercase, minimal punctuation, the occasional 'lol' or 'haha'",
+  "asks a lot of follow-up questions instead of just answering",
+  "a bit scattered — sometimes trails off or changes subject mid-reply",
+  "very polite and a little wordy, tends to over-explain",
+  "blunt and to the point, doesn't soften things much",
+  "friendly and chatty, adds small personal asides",
+  "skeptical phrasing — hedges with 'I guess' / 'maybe' / 'not sure but'",
+  "enthusiastic, uses exclamation points and upbeat language"
+];
+// Older leads saved before speechStyle existed won't have one — assign a
+// stable one deterministically from the lead id so it doesn't change on
+// every render, instead of falling back to the same generic voice for all.
+function getSpeechStyle(l){
+  if(l.speechStyle) return l.speechStyle;
+  let hash = 0;
+  for(let i=0;i<l.id.length;i++) hash = (hash*31 + l.id.charCodeAt(i)) >>> 0;
+  return speechStylesFallback[hash % speechStylesFallback.length];
+}
+
+const DB_KEY = "meridian_leads_db_v1";
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(DB_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+function saveDB(){
+  try{ localStorage.setItem(DB_KEY, JSON.stringify(leads)); }catch(e){}
+}
+
+let leads = loadDB() || [];
+let activeLeadId = null;
+let selectedIds = new Set();
+let topicFilter = "all";
+let statusFilter = "awaiting"; // awaiting = has an unanswered outbound message
+let activeGenerations = 0; // how many generateReply() calls are in flight right now
+let speedMode = "realistic"; // "realistic" (sequential, human-paced) | "bulk" (parallel, faster)
+const BULK_CONCURRENCY = 8;
+function concurrencyCap(){ return speedMode === "bulk" ? BULK_CONCURRENCY : 1; }
+function atCapacity(){ return activeGenerations >= concurrencyCap(); }
+
+// Manual bulk queue — visible, editable list of leads picked to reply this
+// round. Separate from selectedIds, which is only used to build a new queue;
+// once a queue is running, changing checkboxes elsewhere never touches it.
+let bulkQueue = []; // [{ id, status: 'waiting' | 'active' | 'done' }]
+let abortControllers = {}; // leadId -> AbortController, for in-flight generations only
+
+// Hosted auto-reply — scoped ONLY to leads you've explicitly added to the
+// hosted list (l.hosted === true). While on, it keeps those conversations
+// going on their own (new replies feed back in automatically as the lead
+// gets messaged again) — it never touches any lead outside that list.
+let hostedEnabled = false;
+let hostedTimer = null;
+
+function resetAllConversations(){
+  if(!confirm("Reset all conversations? This clears every message, score, and status. Lead identities and assigned directions stay.")) return;
+  clearQueue();
+  leads.forEach(l=>{
+    l.messages = [];
+    l.status = "new";
+    l.score = 0;
+    l.manualOverride = false;
+    l.unread = false;
+    l.pausedUntil = null;
+    l.lastPauseMessageCount = 0;
+    l.pauseThreshold = 9 + Math.floor(Math.random()*5);
+  });
+  saveDB();
+  activeLeadId = null;
+  selectedIds.clear();
+  showToast("All conversations reset");
+  renderLeft();
+  renderRight();
+}
+
+function initials(name){
+  const parts = name.split(" ");
+  return (parts[0][0] + (parts[1] ? parts[1][0] : "")).toUpperCase();
+}
+function escapeHtml(str){ return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function scoreColor(score){
+  if(score>=70) return "var(--green)";
+  if(score>=40) return "var(--brass)";
+  return "var(--text-faint)";
+}
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), 2200);
+}
+function needsReply(lead){
+  const last = lead.messages[lead.messages.length-1];
+  return !!last && last.dir === 'out';
+}
+function isPaused(lead){
+  return !!lead.pausedUntil && Date.now() < lead.pausedUntil;
+}
+function formatClock(ts){
+  const d = new Date(ts);
+  return d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0');
+}
+
+/* =========================================================
+   Left pane: monitoring table + bulk AI reply controls
+   ========================================================= */
+function renderLeft(){
+  const wrap = document.getElementById('leftPane');
+  const total = leads.length;
+  const contacted = leads.filter(l=>l.status!=="new").length;
+  const awaiting = leads.filter(needsReply).length;
+  const qualified = leads.filter(l=>l.status==="qualified").length;
+  const hostedCount = leads.filter(l=>l.hosted).length;
+
+  let pool = leads.filter(l=>l.status!=="new");
+  if(statusFilter==="awaiting") pool = pool.filter(needsReply);
+  else if(statusFilter==="hosted") pool = pool.filter(l=>l.hosted);
+  else if(statusFilter!=="all") pool = pool.filter(l=>l.status===statusFilter);
+  if(topicFilter!=="all") pool = pool.filter(l=>l.topic===topicFilter);
+  pool = pool.slice().sort((a,b)=>{
+    const at = a.messages[a.messages.length-1]?.ts || 0;
+    const bt = b.messages[b.messages.length-1]?.ts || 0;
+    return bt - at;
+  });
+
+  const selCount = [...selectedIds].filter(id=>pool.some(l=>l.id===id)).length;
+  const selHostedCount = [...selectedIds].filter(id=>{ const l = leads.find(x=>x.id===id); return l && l.hosted; }).length;
+  const selNotHostedCount = selCount - selHostedCount;
+
+  wrap.innerHTML = `
+    <div class="section-title">Message monitor</div>
+    <div class="section-sub">Everything the outreach page has sent, and who's waiting on a reply</div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">${total}</div><div class="lbl">Total leads</div></div>
+      <div class="stat-card"><div class="num">${contacted}</div><div class="lbl">Contacted</div></div>
+      <div class="stat-card"><div class="num" style="color:#e3a86a">${awaiting}</div><div class="lbl">Awaiting reply</div></div>
+      <div class="stat-card"><div class="num" style="color:var(--green)">${qualified}</div><div class="lbl">Qualified</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px; ${hostedEnabled ? 'border-color:#3a3fb0;' : ''}">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div style="font-size:13px; font-weight:600;">Hosted auto-reply — ${hostedCount} lead${hostedCount===1?"":"s"} in the list</div>
+          <div class="toolbar-label" style="margin-top:2px;">
+            Only ever touches leads you've explicitly added to this list — never anyone else. While on, it keeps their conversations going automatically (checks every few seconds); replies still land in the queue below, paced the same as everything else.
+          </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer;">
+          <span class="toolbar-label">${hostedEnabled ? "Running" : "Off"}</span>
+          <input type="checkbox" id="hostedToggle" ${hostedEnabled?"checked":""} style="width:34px; height:18px;">
+        </label>
+      </div>
+      ${selCount>0 ? `
+      <div style="display:flex; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);">
+        <button class="btn-mini" id="addHostedBtn" ${selNotHostedCount===0?"disabled":""}>Add ${selNotHostedCount} selected to hosted list</button>
+        <button class="btn-mini" id="removeHostedBtn" style="color:var(--red);" ${selHostedCount===0?"disabled":""}>Remove ${selHostedCount} selected from list</button>
+      </div>
+      ` : ""}
+    </div>
+
+    <div class="toolbar">
+      <select id="statusFilterSel">
+        <option value="awaiting" ${statusFilter==="awaiting"?"selected":""}>Awaiting reply</option>
+        <option value="all" ${statusFilter==="all"?"selected":""}>All contacted</option>
+        <option value="hosted" ${statusFilter==="hosted"?"selected":""}>Hosted list only</option>
+        <option value="in_progress" ${statusFilter==="in_progress"?"selected":""}>In progress</option>
+        <option value="qualified" ${statusFilter==="qualified"?"selected":""}>Qualified</option>
+        <option value="disqualified" ${statusFilter==="disqualified"?"selected":""}>Disqualified</option>
+      </select>
+      <select id="topicFilterSel">
+        <option value="all" ${topicFilter==="all"?"selected":""}>All directions</option>
+        ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${topicFilter===tp.id?"selected":""}>${tp.en}</option>`).join("")}
+      </select>
+      <div class="sep"></div>
+      <button class="btn-mini" id="selectAllBtn">Select all</button>
+      <button class="btn-mini" id="clearSelBtn">Clear</button>
+      <span class="toolbar-label">${selCount} selected</span>
+    </div>
+
+    <div class="toolbar" style="margin-bottom:10px;">
+      <span class="toolbar-label">Speed mode</span>
+      <select id="speedModeSel">
+        <option value="realistic" ${speedMode==="realistic"?"selected":""}>Realistic — sequential, human-paced (slow)</option>
+        <option value="bulk" ${speedMode==="bulk"?"selected":""}>Bulk — up to ${BULK_CONCURRENCY} in parallel (fast, less lifelike)</option>
+      </select>
+      ${speedMode==="bulk" ? `<span class="toolbar-label" style="color:#e3a86a;">Multiple leads will reply at the same time in this mode.</span>` : ""}
+    </div>
+
+    <div class="toolbar" style="margin-bottom:18px;">
+      <button class="btn btn-primary" id="bulkReplyBtn" ${selCount===0?"disabled":""}>Run — add ${selCount} selected to queue</button>
+      <span class="toolbar-label" id="bulkProgress">${activeGenerations>0 ? `${activeGenerations} generating right now...` : ""}</span>
+    </div>
+    <div class="toolbar-label" style="margin:-8px 0 14px; font-size:11px;">Run fires once for whatever you've selected. For leads you want followed up automatically as the conversation continues, add them to the hosted list above instead.</div>
+
+    ${bulkQueue.length>0 ? `
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+        <div style="font-size:13px; font-weight:600;">Reply queue — ${bulkQueue.length} total (${bulkQueue.filter(q=>q.status==='waiting').length} waiting, ${bulkQueue.filter(q=>q.status==='active').length} replying, ${bulkQueue.filter(q=>q.status==='done').length} done${bulkQueue.filter(q=>q.status==='failed').length>0 ? `, <span style="color:var(--red);">${bulkQueue.filter(q=>q.status==='failed').length} failed</span>` : ""})</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-mini" id="clearFinishedBtn">Clear finished</button>
+          <button class="btn-mini" id="cancelQueueBtn" style="color:var(--red); border-color:#4a2226;">Cancel remaining</button>
+        </div>
+      </div>
+      <div class="toolbar-label" style="margin-bottom:10px; font-size:11px;">Every reply the AI is doing or about to do lands here — nothing happens off-list, and nothing runs unless you clicked Run.</div>
+      <div style="max-height:280px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+        ${bulkQueue.map((q, qi) => {
+          const ql = leads.find(x=>x.id===q.id);
+          if(!ql) return "";
+          const statusText = q.status==='waiting' ? `#${qi+1} waiting` : q.status==='active' ? "replying..." : q.status==='failed' ? "failed" : "done";
+          const statusColor = q.status==='waiting' ? "var(--text-faint)" : q.status==='active' ? "#e3a86a" : q.status==='failed' ? "var(--red)" : "var(--green)";
+          return `
+          <div style="display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid ${q.status==='failed'?'#4a2226':'var(--border-soft)'}; border-radius:8px;">
+            <div class="row-avatar" style="width:24px;height:24px;font-size:10px;">${initials(ql.name)}</div>
+            <div style="flex:1; font-size:12.5px;">${ql.name}</div>
+            <div style="font-size:11px; color:${statusColor}; min-width:70px; text-align:right;">${statusText}</div>
+            ${q.status==='waiting' ? `<button class="btn-mini" data-bump="${q.id}">Bump up</button>` : ""}
+            ${q.status==='failed' ? `<button class="btn-mini" data-retry="${q.id}" style="color:var(--blue);">Retry</button>` : ""}
+            ${q.status!=='done' ? `<button class="btn-mini" data-remove="${q.id}" style="color:var(--red);">Remove</button>` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>
+    ` : ""}
+
+    ${pool.length===0 ? `
+      <div class="empty-state"><div class="title">Nothing here</div><div class="body">No leads match this filter yet. Messages sent from the outreach page will show up here.</div></div>
+    ` : `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:30px;"></th>
+            <th style="width:60px;">Hosted</th>
+            <th>Lead</th>
+            <th>Direction</th>
+            <th>Last message</th>
+            <th>Status</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${pool.map(l => {
+            const last = l.messages[l.messages.length-1];
+            const awaitingReply = needsReply(l);
+            return `
+            <tr class="row-clickable ${l.id===activeLeadId?'row-selected':''}" data-open="${l.id}">
+              <td><input type="checkbox" data-id="${l.id}" class="row-cb" ${selectedIds.has(l.id)?"checked":""}></td>
+              <td style="text-align:center;"><input type="checkbox" data-hosted-id="${l.id}" class="hosted-cb" ${l.hosted?"checked":""} title="Add/remove from hosted list"></td>
+              <td><div class="name-cell"><div class="row-avatar">${initials(l.name)}</div>${l.name}${l.hosted ? ' <span style="color:#8f9dff;" title="In hosted list">●</span>' : ''}</div></td>
+              <td><span class="topic-pill">${topicById(l.topic).en}</span></td>
+              <td>
+                <div class="msg-preview">
+                  <span class="dir-tag">${last ? (last.dir==='out'?'SENT ':'REPLY ') : ''}</span>${last?escapeHtml(last.text):''}
+                </div>
+              </td>
+              <td>${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : (awaitingReply ? '<span class="status-badge status-awaiting">Awaiting reply</span>' : `<span class="status-badge status-${l.status}">${l.status}</span>`)}</td>
+              <td>
+                <div class="score-row">
+                  <div class="score-bar-wrap"><div class="score-bar-fill" style="width:${l.score}%; background:${scoreColor(l.score)};"></div></div>
+                  <span class="score-num">${l.score}</span>
+                </div>
+              </td>
+            </tr>
+          `}).join("")}
+        </tbody>
+      </table>
+    `}
+  `;
+
+  document.getElementById('hostedToggle')?.addEventListener('change', (e)=>{
+    setHosted(e.target.checked);
+  });
+  document.getElementById('addHostedBtn')?.addEventListener('click', ()=>{
+    addToHosted([...selectedIds]);
+  });
+  document.getElementById('removeHostedBtn')?.addEventListener('click', ()=>{
+    removeFromHosted([...selectedIds]);
+  });
+  document.getElementById('statusFilterSel').addEventListener('change', (e)=>{ statusFilter = e.target.value; renderLeft(); });
+  document.getElementById('topicFilterSel').addEventListener('change', (e)=>{ topicFilter = e.target.value; renderLeft(); });
+  document.getElementById('selectAllBtn').addEventListener('click', ()=>{ pool.forEach(l=>selectedIds.add(l.id)); renderLeft(); });
+  document.getElementById('clearSelBtn').addEventListener('click', ()=>{ selectedIds.clear(); renderLeft(); });
+  document.getElementById('bulkReplyBtn').addEventListener('click', startBulkQueue);
+  document.getElementById('clearFinishedBtn')?.addEventListener('click', clearFinishedQueueItems);
+  document.getElementById('cancelQueueBtn')?.addEventListener('click', clearQueue);
+  document.querySelectorAll('[data-bump]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>bumpQueueItem(e.target.getAttribute('data-bump')));
+  });
+  document.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>removeQueueItem(e.target.getAttribute('data-remove')));
+  });
+  document.querySelectorAll('[data-retry]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>retryQueueItem(e.target.getAttribute('data-retry')));
+  });
+  document.getElementById('speedModeSel')?.addEventListener('change', (e)=>{
+    speedMode = e.target.value;
+    renderLeft();
+  });
+  document.querySelectorAll('.row-cb').forEach(cb=>{
+    cb.addEventListener('click', (e)=>e.stopPropagation());
+    cb.addEventListener('change', (e)=>{
+      const id = e.target.getAttribute('data-id');
+      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
+      renderLeft();
+    });
+  });
+  document.querySelectorAll('.hosted-cb').forEach(cb=>{
+    cb.addEventListener('click', (e)=>e.stopPropagation());
+    cb.addEventListener('change', (e)=>{
+      const id = e.target.getAttribute('data-hosted-id');
+      const l = leads.find(x=>x.id===id);
+      if(l){
+        l.hosted = e.target.checked;
+        saveDB();
+        if(l.hosted && hostedEnabled) hostedTick(); // pick it up right away instead of waiting for the next tick
+      }
+      renderLeft();
+    });
+  });
+  document.querySelectorAll('[data-open]').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      activeLeadId = row.getAttribute('data-open');
+      renderLeft();
+      renderRight();
+    });
+  });
+}
+
+/* =========================================================
+   Right pane: thread detail
+   ========================================================= */
+function renderRight(){
+  const wrap = document.getElementById('rightPane');
+  const l = leads.find(x=>x.id===activeLeadId);
+  if(!l){
+    wrap.innerHTML = `<div class="thread-empty">Click a lead on the left to review the full conversation</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="thread-header">
+      <div class="thread-name">${l.name}</div>
+      <div class="thread-sub">${l.phone} · ${l.email}</div>
+      <div class="thread-sub">${industriesEn[l.industryIdx]} · ${l.lang.toUpperCase()}</div>
+      <div class="thread-meta-row">
+        <span class="topic-pill">${topicById(l.topic).en}</span>
+        <span class="status-badge status-${l.status}">${l.status}</span>
+        ${isPaused(l) ? `<span class="status-badge status-paused">Paused till ${formatClock(l.pausedUntil)}</span>` : ""}
+        <button class="btn-mini" id="toggleHostedBtn" style="${l.hosted?'color:#8f9dff; border-color:#3a3fb0;':''}">${l.hosted ? "In hosted list — remove" : "Add to hosted list"}</button>
+      </div>
+    </div>
+    <div class="thread-messages" id="threadMessages"></div>
+
+    <div class="side-block">
+      <div class="field-label">AI reply direction (used only if you choose "AI replies" below)</div>
+      <select class="side-select" id="dirSelect">
+        ${TOPIC_DIRECTIONS.map(tp=>`<option value="${tp.id}" ${l.topic===tp.id?"selected":""}>${tp.en}</option>`).join("")}
+      </select>
+      <div class="field-label">Custom instruction (optional)</div>
+      <textarea class="side-input" id="customDirInput" placeholder="e.g. Push back twice on price before agreeing">${escapeHtml(l.customDirection || "")}</textarea>
+      <button class="btn btn-mini" id="saveDirBtn" style="margin-top:8px;">Save direction</button>
+    </div>
+
+    <div class="side-block">
+      <div class="field-label" style="font-size:11.5px; color:var(--text);">Who replies for this lead?</div>
+
+      <div style="margin-top:10px;">
+        <div class="field-label" style="margin:0 0 6px;">Option A — AI replies, following the direction above</div>
+        <button class="btn btn-primary btn-block" id="threadReplyBtn" ${needsReply(l) ? "" : "disabled"}>Generate AI reply${isPaused(l) ? " (override pause)" : ""}</button>
+        <span class="toolbar-label" id="threadReplyStatus"></span>
+        <div class="typing-hint">
+          Priority lane — under a few seconds, not the long bulk delay. Always fires right away, even if the queue is busy elsewhere; if this lead is sitting in the queue below, it's pulled out first so it isn't answered twice.
+          ${isPaused(l) ? `<br><span style="color:#e3a86a;">This lead said they'd be away until ${formatClock(l.pausedUntil)} — clicking generates a reply anyway.</span>` : ""}
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="field-label" style="margin:0 0 6px;">Option B — you write the customer's reply yourself (instant, no AI, no queue)</div>
+        <textarea class="side-input" id="manualReplyInput" placeholder="Type what this lead says back..."></textarea>
+        <button class="btn btn-mini" id="manualReplyBtn" style="margin-top:8px;">Send as the customer</button>
+      </div>
+    </div>
+  `;
+  const msgWrap = document.getElementById('threadMessages');
+  l.messages.forEach(m=>{
+    const outer = document.createElement('div');
+    outer.className = "msg-wrap " + m.dir;
+    const bubble = document.createElement('div');
+    bubble.className = "msg " + m.dir;
+    bubble.innerHTML = escapeHtml(m.text) + `<div class="meta">${m.time}</div>`;
+    outer.appendChild(bubble);
+    msgWrap.appendChild(outer);
+  });
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+
+  document.getElementById('saveDirBtn').addEventListener('click', ()=>{
+    l.topic = document.getElementById('dirSelect').value;
+    l.customDirection = document.getElementById('customDirInput').value.trim();
+    saveDB();
+    showToast("Direction saved");
+    renderLeft();
+  });
+
+  document.getElementById('toggleHostedBtn').addEventListener('click', ()=>{
+    l.hosted = !l.hosted;
+    saveDB();
+    renderLeft();
+    renderRight();
+  });
+
+  document.getElementById('manualReplyBtn').addEventListener('click', ()=>{
+    // This is YOU dictating what the customer says back — completes the
+    // exchange immediately. Pull it out of the queue first if it's sitting
+    // there, so the AI doesn't also try to answer for the same turn.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
+    const input = document.getElementById('manualReplyInput');
+    const text = input.value.trim();
+    if(!text) return;
+    const d = new Date();
+    l.messages.push({dir:'in', text, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation:null});
+    input.value = "";
+    saveDB();
+    renderLeft();
+    renderRight();
+  });
+
+  document.getElementById('threadReplyBtn')?.addEventListener('click', async ()=>{
+    // If this lead is also sitting in the bulk queue (waiting or already being
+    // generated there), pull it out first so it isn't answered twice — this
+    // manual click takes over and handles it right now instead.
+    if(bulkQueue.some(q=>q.id===l.id)) removeQueueItem(l.id);
+
+    renderLeft();
+    const btn = document.getElementById('threadReplyBtn');
+    const status = document.getElementById('threadReplyStatus');
+    if(btn) btn.disabled = true;
+    if(status) status.textContent = "Typing...";
+    await generateReply(l.id, true, undefined, true); // priority = fast, live-chat pacing
+    renderLeft();
+    renderRight();
+  });
+}
+
+/* =========================================================
+   AI reply generation (manual trigger only, batched from admin)
+   ========================================================= */
+function wait(ms, signal){
+  return new Promise((resolve, reject)=>{
+    const t = setTimeout(resolve, ms);
+    if(signal){
+      if(signal.aborted){ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); return; }
+      signal.addEventListener('abort', ()=>{ clearTimeout(t); reject(new DOMException("Aborted","AbortError")); }, {once:true});
+    }
+  });
+}
+
+// Simulated human response pacing — never instant. In "realistic" mode it
+// varies a lot between leads (some reply fast, some take a while). In "bulk"
+// mode it's short and tight so hundreds of leads don't take forever, while
+// still not landing at the exact same millisecond as sibling replies.
+function humanReplyDelay(text, priority){
+  if(priority){
+    // You're actively watching this thread — still not instant, but snappy.
+    const thinking = 600 + Math.random()*1800; // 0.6s - 2.4s
+    const typing = Math.min((text.length || 20) * 15, 1500);
+    return Math.round(thinking + typing);
+  }
+  if(speedMode === "bulk"){
+    const thinking = 400 + Math.random()*1600; // 0.4s - 2s
+    const typing = Math.min((text.length || 20) * 8, 1200);
+    return Math.round(thinking + typing);
+  }
+  const roll = Math.random();
+  let thinking;
+  if(roll < 0.45){
+    thinking = 2000 + Math.random()*4000;       // fast responder: 2s - 6s
+  } else if(roll < 0.8){
+    thinking = 6000 + Math.random()*10000;      // average: 6s - 16s
+  } else {
+    thinking = 16000 + Math.random()*30000;     // slow responder: 16s - 46s
+  }
+  const typing = Math.min((text.length || 20) * 45, 6000); // rough typing-speed simulation, capped
+  return Math.round(thinking + typing);
+}
+
+function showTypingIndicator(leadName){
+  const msgWrap = document.getElementById('threadMessages');
+  if(!msgWrap) return null;
+  const typingDiv = document.createElement('div');
+  typingDiv.className = "msg-wrap in";
+  typingDiv.innerHTML = `<div class="msg in" style="font-style:italic; color:var(--text-faint);">${leadName} is typing...</div>`;
+  msgWrap.appendChild(typingDiv);
+  msgWrap.scrollTop = msgWrap.scrollHeight;
+  return typingDiv;
+}
+
+async function generateReply(id, showTyping, signal, priority){
+  const l = leads.find(x=>x.id===id);
+  if(!l){
+    console.error("generateReply: lead not found, id=", id);
+    return false;
+  }
+
+  activeGenerations++;
+  let success = false;
+  try{
+
+  const history = l.messages.slice(-8).map(m => (m.dir==='out' ? "Sales: " : "Customer: ") + m.text).join("\n");
+  const languageName = l.lang === 'fr' ? "French" : "English";
+  const topic = topicById(l.topic);
+  const customLine = l.customDirection ? `\nAdditional guidance from the operator: ${l.customDirection}` : "";
+
+  // After enough back-and-forth, real people don't stay glued to a text thread —
+  // have this reply be a natural excuse to step away, then pause the lead for a
+  // couple of real-world hours before it's eligible to reply again.
+  const messagesSincePause = l.messages.length - (l.lastPauseMessageCount || 0);
+  const shouldWrapUp = messagesSincePause >= (l.pauseThreshold || 10);
+
+  const wrapUpLine = shouldWrapUp
+    ? `\nThis is also the moment to naturally end this conversation for now — after your reply, before anything else feels resolved. Give a brief, casual, in-character excuse for needing to step away (busy with work, heading into something, will check back later — whatever fits the persona). Do NOT mention a specific time or promise an exact return. Keep it to one short sentence, same as any other reply.`
+    : "";
+
+  const systemPrompt = `You are role-playing a fictional customer persona for an internal sales-training tool. Everything is fictional practice content, not about a real person, and never sent to any real communication channel.
+Customer profile: name ${l.name}, based in Canada, interested in ${industriesEn[l.industryIdx]}. General attitude: ${l.attitude}. Speech style: ${getSpeechStyle(l)}.
+
+Write in this specific person's voice, not a generic "helpful customer" template. Let the speech style above genuinely shape word choice, sentence length, and punctuation. Avoid stock customer-service-sounding phrases like "Sounds good!", "Thanks for reaching out", "I appreciate that", "That makes sense" — real texters rarely talk like that. Vary your sentence structure between replies instead of settling into a pattern.
+
+Above all, react naturally and proportionally to what the salesperson's most recent message actually says. Match its length, tone, and topic:
+- If it's just a greeting ("hi", "hello there") or something short and generic, reply with an equally short, casual greeting of your own. Do NOT bring up pricing, products, objections, or any business topic unprompted.
+- If it asks a direct question, answer that specific question.
+- Never jump ahead to a topic the salesperson hasn't actually raised yet.
+
+Background conversation direction (use only when it naturally fits — a loose steer for how you lean once the conversation actually gets into business territory, never a script to force into every reply): ${topic.prompt}${customLine}${wrapUpLine}
+
+Reply ONLY in ${languageName}, in 1-2 sentences matching the persona and speech style above, proportional to the message you're responding to (a one-word text deserves a short reply, not a paragraph). Do not mention being an AI, a simulation, or a training exercise. Do not switch languages.
+After the reply, on a new line, output strict JSON only in this exact format: {"score": <integer 0-100>} representing how likely this lead is to convert based on the whole conversation so far (0 = no interest, 100 = ready to buy). A single greeting exchange should score low (near 0) — only raise the score once real interest or business discussion actually happens.`;
+
+  let typingDiv = (showTyping && activeLeadId===id) ? showTypingIndicator(l.name) : null;
+
+  try{
+    const response = await fetch(API_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal,
+      body: JSON.stringify({
+        model: "claude-sonnet-5",
+        max_tokens: 300,
+        temperature: 1.05,
+        system: systemPrompt,
+        messages: [ { role: "user", content: `Recent conversation:\n${history}\n\nWrite the customer's next reply, then the JSON score line.` } ]
+      })
+    });
+    const data = await response.json();
+
+    if(!response.ok){
+      const apiErrMsg = data?.error?.message || `HTTP ${response.status}`;
+      throw new Error(apiErrMsg);
+    }
+
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    const raw = textBlock ? textBlock.text.trim() : "";
+
+    let replyText = raw;
+    let score = l.score;
+    const jsonMatch = raw.match(/\{[^{}]*"score"[^{}]*\}/);
+    if(jsonMatch){
+      replyText = raw.slice(0, jsonMatch.index).trim();
+      try{
+        const parsed = JSON.parse(jsonMatch[0]);
+        if(typeof parsed.score === 'number') score = Math.max(0, Math.min(100, Math.round(parsed.score)));
+      }catch(e){}
+    }
+    if(!replyText) replyText = "(no reply)";
+
+    // Pace the reply like a real person — wait before it actually lands, keep the
+    // typing indicator up (or start one now if this lead just became active).
+    if(!typingDiv && activeLeadId===id) typingDiv = showTypingIndicator(l.name);
+    await wait(humanReplyDelay(replyText, priority), signal);
+
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
+
+    // Re-fetch the live lead object right before mutating — if the leads
+    // array got reloaded (e.g. a refresh happened) while we were waiting,
+    // this makes sure the message lands on the object that actually gets
+    // saved, instead of an orphaned copy whose changes would be lost.
+    const live = leads.find(x=>x.id===id) || l;
+    const d = new Date();
+    live.messages.push({dir:'in', text: replyText, time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+    live.score = score;
+    if(!live.manualOverride){
+      live.status = score >= 70 ? "qualified" : "in_progress";
+    }
+
+    if(shouldWrapUp){
+      const pauseHours = 2 + Math.random(); // 2-3 real hours
+      live.pausedUntil = Date.now() + pauseHours * 3600 * 1000;
+      live.lastPauseMessageCount = live.messages.length;
+      live.pauseThreshold = 9 + Math.floor(Math.random()*5); // 9-13 for the next stretch
+    }
+    success = true;
+  }catch(err){
+    if(typingDiv && typingDiv.parentNode) typingDiv.remove();
+    if(err && err.name === 'AbortError'){
+      // Deliberately cancelled from the queue — say nothing, leave the
+      // conversation exactly as it was before this attempt.
+    } else {
+      const live = leads.find(x=>x.id===id) || l;
+      const d = new Date();
+      live.messages.push({dir:'in', text:"(error: " + (err.message || "request failed") + ")", time: d.getHours().toString().padStart(2,'0')+":"+d.getMinutes().toString().padStart(2,'0'), ts: Date.now(), translation: null});
+      success = true; // an error message was recorded, so it's visible — not a silent no-op
+    }
+  }
+  saveDB();
+
+  } finally {
+    activeGenerations--;
+  }
+  return success;
+}
+
+
+// Manual bulk trigger — builds a visible, editable queue instead of firing
+// blindly. Every eligible lead you selected goes into the queue, no sampling,
+// nothing left out. This is the only thing that ever generates a reply —
+// what you check is exactly what runs, fully visible and editable (reorder /
+// remove, even mid-flight) below.
+function startBulkQueue(){
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const fullSelection = leads.filter(l=>selectedIds.has(l.id));
+  const pausedCount = fullSelection.filter(isPaused).length;
+  const alreadyQueuedCount = fullSelection.filter(l=>queuedIds.has(l.id)).length;
+  const eligible = fullSelection.filter(l=>!isPaused(l) && !queuedIds.has(l.id));
+  if(eligible.length===0){ selectedIds.clear(); renderLeft(); return; }
+
+  bulkQueue = bulkQueue.concat(eligible.map(l=>({id: l.id, status: 'waiting', source: 'manual'})));
+  selectedIds.clear();
+
+  const notes = [];
+  if(pausedCount>0) notes.push(`${pausedCount} paused, left out`);
+  if(alreadyQueuedCount>0) notes.push(`${alreadyQueuedCount} already in queue`);
+  const noteStr = notes.length ? ` (${notes.join(", ")})` : "";
+  showToast(`Queued all ${eligible.length} selected${noteStr}`);
+
+  advanceQueue();
+  renderLeft();
+}
+
+// Launches as many 'waiting' queue items as the current concurrency cap
+// allows. Called whenever a slot frees up (a generation finishes) so the
+// queue keeps draining on its own.
+function advanceQueue(){
+  let slots = concurrencyCap() - activeGenerations;
+  if(slots <= 0) return;
+  for(const item of bulkQueue){
+    if(slots <= 0) break;
+    if(item.status !== 'waiting') continue;
+    item.status = 'active';
+    slots--;
+    const controller = new AbortController();
+    abortControllers[item.id] = controller;
+    generateReply(item.id, true, controller.signal).then((success)=>{
+      delete abortControllers[item.id];
+      item.status = success ? 'done' : 'failed';
+      renderLeft();
+      if(activeLeadId === item.id) renderRight();
+      advanceQueue();
+    }).catch((err)=>{
+      // Belt and braces — generateReply itself shouldn't throw, but if
+      // something unexpected escapes, never leave the item stuck silently.
+      console.error("Queue item errored unexpectedly:", item.id, err);
+      delete abortControllers[item.id];
+      item.status = 'failed';
+      renderLeft();
+      advanceQueue();
+    });
+  }
+  renderLeft();
+}
+
+// Toggle hosted mode on/off. Scope is only ever leads with l.hosted === true —
+// nothing outside that list is ever touched, no matter how long this runs.
+function setHosted(enabled){
+  hostedEnabled = enabled;
+  if(enabled && !hostedTimer){
+    hostedTimer = setInterval(hostedTick, 3000);
+    hostedTick();
+  } else if(!enabled && hostedTimer){
+    clearInterval(hostedTimer);
+    hostedTimer = null;
+  }
+  renderLeft();
+}
+
+// Every few seconds, check the hosted list for leads that are waiting on a
+// reply and queue them up (same visible queue as manual Run, same pacing,
+// same everything) — but only ever leads with l.hosted === true.
+function hostedTick(){
+  if(!hostedEnabled) return;
+  const queuedIds = new Set(bulkQueue.map(q=>q.id));
+  const candidates = leads.filter(l=> l.hosted && needsReply(l) && !isPaused(l) && !queuedIds.has(l.id));
+  if(candidates.length===0) return;
+  bulkQueue = bulkQueue.concat(candidates.map(l=>({id: l.id, status:'waiting'})));
+  advanceQueue();
+  renderLeft();
+}
+
+// Add / remove leads from the hosted list.
+function addToHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = true; });
+  saveDB();
+  renderLeft();
+}
+function removeFromHosted(ids){
+  ids.forEach(id=>{ const l = leads.find(x=>x.id===id); if(l) l.hosted = false; });
+  saveDB();
+  renderLeft();
+}
+
+// Move a still-waiting item to the very front of the queue — "cuts in line"
+// ahead of everything else still waiting.
+function bumpQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id && q.status==='waiting');
+  if(idx <= 0) return;
+  const [item] = bulkQueue.splice(idx,1);
+  bulkQueue.unshift(item);
+  renderLeft();
+}
+
+// Remove one item from the queue. If it hasn't started yet it's simply
+// dropped (never replies). If it's already in flight, its request is
+// aborted so it stops without leaving an error message behind.
+function removeQueueItem(id){
+  const idx = bulkQueue.findIndex(q=>q.id===id);
+  if(idx===-1) return;
+  const item = bulkQueue[idx];
+  if(item.status==='active'){
+    const c = abortControllers[id];
+    if(c) c.abort();
+  }
+  bulkQueue.splice(idx,1);
+  renderLeft();
+}
+
+// Put a failed item back to 'waiting' and let the queue pick it up again.
+function retryQueueItem(id){
+  const item = bulkQueue.find(q=>q.id===id && q.status==='failed');
+  if(!item) return;
+  item.status = 'waiting';
+  advanceQueue();
+  renderLeft();
+}
+
+// Stops everything still waiting and aborts anything in flight.
+function clearQueue(){
+  bulkQueue.forEach(item=>{
+    if(item.status==='active'){
+      const c = abortControllers[item.id];
+      if(c) c.abort();
+    }
+  });
+  bulkQueue = [];
+  renderLeft();
+}
+
+// Drop finished entries out of the visible list, keep waiting/active ones.
+function clearFinishedQueueItems(){
+  bulkQueue = bulkQueue.filter(q=>q.status!=='done');
+  renderLeft();
+}
+
+/* =========================================================
+   Boot
+   ========================================================= */
+function refresh(){
+  leads = loadDB() || [];
+  const note = document.getElementById('refreshNote');
+  note.textContent = "Loaded " + new Date().toLocaleTimeString();
+  renderLeft();
+  renderRight();
+}
+document.getElementById('refreshBtn').addEventListener('click', refresh);
+document.getElementById('resetAllBtn').addEventListener('click', resetAllConversations);
+window.addEventListener('storage', (e)=>{ if(e.key===DB_KEY) refresh(); });
+
+// Light periodic re-render (no reload from storage) so "paused until" badges
+// flip back to normal on their own once real time catches up, even if
+// nobody's clicking around.
+setInterval(()=>{ renderLeft(); if(activeLeadId) renderRight(); }, 20000);
+
+refresh();
+</script>
+
+</body>
+</html>
